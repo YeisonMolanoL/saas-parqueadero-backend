@@ -4,7 +4,7 @@ export interface DTOBienvenidaBaileys {
     horaIngreso: string;
     nombreParqueadero: string;
     imagenBannerUrl?: string;
-    ticketId: number;
+    ticketId?: number | string;
 }
 
 export interface DTOEnvioQRBaileys {
@@ -24,6 +24,14 @@ export interface IWhatsAppService {
      * Envía la imagen del banner con el menú textual explicativo
      */
     enviarMensajeIngreso(datos: DTOBienvenidaBaileys): Promise<boolean>;
+
+    enviarMenuPrincipal(datos: {
+        telefono: string;
+        placa: string;
+        fechaEntrada: Date | string;
+        ticketId?: string | number;
+        nombreParqueadero: string;
+    }): Promise<boolean>;
 
     /**
      * Envía la imagen del código QR para la salida

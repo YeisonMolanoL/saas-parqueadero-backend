@@ -81,4 +81,5 @@ export interface ITicketRepository {
         turnoSalidaId: number;
     }): Promise<void>;
     anularTicket(datos: IAnularTicketDTO): Promise<void>;
+    obtenerNombreParqueadero(parqueaderoId: number | string): Promise<string>;
 }

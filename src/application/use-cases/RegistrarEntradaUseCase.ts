@@ -10,6 +10,8 @@ export class RegistrarEntradaUseCase {
     ) { }
 
     async ejecutar(data: IRegistroEntradaDTO) {
+
+        console.log('data :>> ', data);
         const placaLimpia = data.placa.trim().toUpperCase();
 
         // 1. Verificar si el operario tiene un turno de caja abierto
@@ -44,25 +46,19 @@ export class RegistrarEntradaUseCase {
             observacionesDanos: data.observacionesDanos,
             turnoIngresoId
         });
+        const nombreParqueadero = await this.ticketRepository.obtenerNombreParqueadero(data.parqueaderoId);
 
-        // 6. Notificar por WhatsApp en segundo plano (estilo Zybo)
+        // 6. Notificar por whatsapp en segundo plano
         if (data.telefonoWhatsapp && this.whatsappService) {
-            const horaFormateada = fechaEntrada.toLocaleTimeString('es-CO', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-
-            // Disparamos el envío a Baileys
-            this.whatsappService.enviarMensajeIngreso({
+            this.whatsappService.enviarMenuPrincipal({
                 telefono: data.telefonoWhatsapp,
                 placa: placaLimpia,
-                horaIngreso: horaFormateada,
-                nombreParqueadero: 'PARQUEADERO CENTRAL',
-                ticketId: ticketId
-            }).then(exito => {
+                fechaEntrada: fechaEntrada,
+                ticketId: ticketId,
+                nombreParqueadero: nombreParqueadero
+            }).then((exito: boolean) => {
                 if (!exito) console.log('⚠️ No se pudo entregar el mensaje por WhatsApp.');
-            }).catch(err => console.error('❌ Error crítico al enviar por Baileys:', err));
+            }).catch((err: unknown) => console.error('❌ Error crítico al enviar por Baileys:', err));
         }
 
         // 7. Retorno unificado para Express

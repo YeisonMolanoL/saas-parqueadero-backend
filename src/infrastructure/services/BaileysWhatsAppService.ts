@@ -120,9 +120,8 @@ export class BaileysWhatsAppService implements IWhatsAppService {
         const mensajeTexto = `👋 ¡Hola *${datos.placa}*! Bienvenido a *${datos.nombreParqueadero}*.\n` +
             `Registramos tu ingreso al parqueadero a las *${datos.horaIngreso}*.\n\n` +
             `Elige una opción respondiendo con el número: 👇\n\n` +
-            `1️⃣ *Ver Tiquete QR*\n` +
-            `2️⃣ *Pagar*\n` +
-            `3️⃣ *Menú principal*`;
+            `1️⃣ *Pagar*\n` +
+            `2️⃣ *Tiquete de parqueadero*`;
 
         let envio: any;
         if (datos.imagenBannerUrl) {
@@ -154,11 +153,79 @@ export class BaileysWhatsAppService implements IWhatsAppService {
         return true;
     }
 
+    // Enviar menú de medios de pago formateado
+    async enviarMenuMediosPago(telefono: string): Promise<boolean> {
+        const jid = this.formatearJid(telefono);
+
+        const mensajeTexto = `Elige un medio seguro para el pago de esta visita al parqueadero. 👇\n\n` +
+            `1️⃣ *DaviPlata*\n` +
+            `2️⃣ *Tarjetas de crédito (WOMPI)*\n` +
+            `3️⃣ *Nequi*\n` +
+            `0️⃣ *Volver al menú principal*`;
+
+        await this.sock.sendMessage(jid, { text: mensajeTexto });
+        return true;
+    }
+
+    // Enviar información del tiquete con link externo
+    async enviarDetalleTiqueteConLink(datos: {
+        telefono: string;
+        placa: string;
+        tiempoParqueo: string;
+        urlWebTiquete: string;
+    }): Promise<boolean> {
+        const jid = this.formatearJid(datos.telefono);
+
+        const mensajeText = `Tu tiempo de parqueo es de *${datos.tiempoParqueo}*\n\n` +
+            `Para el vehículo de placa *${datos.placa}* ` +
+            `Presenta el tiquete de pago que encuentras en este enlace: 👇\n\n` +
+            `${datos.urlWebTiquete}`;
+
+        await this.sock.sendMessage(jid, {
+            text: mensajeText,
+            linkPreview: {
+                "canonical-url": datos.urlWebTiquete,
+                "matched-url": datos.urlWebTiquete,
+                title: "Ver tiquete",
+                description: `Tiquete de entrada - Placa ${datos.placa}`,
+                jpegThumbnail: null // Puedes adjuntar un Buffer en Base64 con el logo de SmartParking
+            }
+        });
+
+        return true;
+    }
+
     private formatearJid(telefono: string): string {
         let limpio = telefono.replace(/\D/g, '');
         if (!limpio.startsWith('57') && limpio.length === 10) {
             limpio = `57${limpio}`;
         }
         return `${limpio}@s.whatsapp.net`;
+    }
+
+    // Método helper reutilizable para formatear y enviar el menú principal
+    async enviarMenuPrincipal(datos: {
+        telefono: string;
+        placa: string;
+        fechaEntrada: Date | string;
+        ticketId: string | number;
+        nombreParqueadero: string;
+    }): Promise<boolean> {
+        const fecha = new Date(datos.fechaEntrada);
+
+        // Formato estandarizado de hora (ej: "03:15 PM")
+        const horaFormateada = fecha.toLocaleTimeString('es-CO', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+
+        return await this.enviarMensajeIngreso({
+            telefono: datos.telefono,
+            placa: datos.placa,
+            horaIngreso: horaFormateada,
+            nombreParqueadero: datos.nombreParqueadero,
+            ticketId: datos.ticketId
+        });
     }
 }
