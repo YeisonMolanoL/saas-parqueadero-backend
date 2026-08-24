@@ -50,7 +50,8 @@ export interface ITicketDetalle {
 }
 
 export interface IRegistrarSalidaDTO {
-    ticketId: number;
+    ticketId?: number;
+    codigoQr?: string;
     parqueaderoId: number;
     usuarioSalidaId: number;
     metodoPago: 'EFECTIVO' | 'WOMPI_PSE' | 'WOMPI_TARJETA' | 'WOMPI_BRE_B' | 'NEQUI' | 'DAVIPLATA' | 'OTRO';

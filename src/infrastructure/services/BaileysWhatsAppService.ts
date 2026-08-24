@@ -228,4 +228,29 @@ export class BaileysWhatsAppService implements IWhatsAppService {
             ticketId: datos.ticketId
         });
     }
+
+    async enviarConfirmacionSalida(datos: {
+        telefono: string;
+        placa: string;
+        totalPagado: number;
+        nombreParqueadero: string;
+        minutosGracia?: number;
+    }): Promise<boolean> {
+        const jid = this.formatearJid(datos.telefono);
+        const minutos = datos.minutosGracia ?? 10;
+
+        // Formatear el total a pesos/moneda local (ej. $5.000)
+        const valorFormateado = new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            maximumFractionDigits: 0
+        }).format(datos.totalPagado);
+
+        const mensajeTexto = `Gracias, hemos recibido tu pago por valor de *${valorFormateado}*.\n\n` +
+            `Tienes *${minutos} minutos* para salir del parqueadero o empezará un nuevo cobro.\n\n` +
+            `¡Gracias por visitar *${datos.nombreParqueadero}*! 🚗💨`;
+
+        await this.sock.sendMessage(jid, { text: mensajeTexto });
+        return true;
+    }
 }

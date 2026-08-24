@@ -1,8 +1,12 @@
 import type { ITicketRepository, IRegistrarSalidaDTO } from '../../domain/repositories/ITicketRepository.js';
+import type { IWhatsAppService } from '../../domain/services/IWhatsAppService.js';
 import { CalculadorTarifa } from '../../domain/services/CalculadorTarifa.js';
 
 export class RegistrarSalidaUseCase {
-    constructor(private ticketRepository: ITicketRepository) { }
+    constructor(
+        private ticketRepository: ITicketRepository,
+        private whatsappService?: IWhatsAppService
+    ) { }
 
     async ejecutar(dto: IRegistrarSalidaDTO) {
         // 1. Validar turno de salida del operario
@@ -11,8 +15,18 @@ export class RegistrarSalidaUseCase {
             throw new Error('Debes tener un turno de caja abierto para procesar salidas.');
         }
 
-        // 2. Obtener el ticket
-        const ticket = await this.ticketRepository.buscarTicketPorId(dto.ticketId, dto.parqueaderoId);
+        // 2. Obtener el ticket (por QR o por TicketId)
+        let ticket = null;
+
+        if (dto.codigoQr) {
+            // 👈 Se usa la firma existente buscarTicketPorQr(codigoQr: string)
+            ticket = await this.ticketRepository.buscarTicketPorQr(dto.codigoQr);
+        } else if (dto.ticketId) {
+            ticket = await this.ticketRepository.buscarTicketPorId(dto.ticketId, dto.parqueaderoId);
+        } else {
+            throw new Error('Debes proporcionar el ID del ticket o el código QR.');
+        }
+
         if (!ticket) throw new Error('El ticket no existe.');
         if (ticket.estado !== 'ACTIVO') {
             throw new Error(`El ticket ya se encuentra en estado ${ticket.estado}.`);
@@ -32,6 +46,26 @@ export class RegistrarSalidaUseCase {
             metodoPago: dto.metodoPago,
             turnoSalidaId
         });
+
+        // 🚀 5. Notificar por WhatsApp en segundo plano si el cliente tiene número registrado
+        if (ticket.telefonoWhatsapp && this.whatsappService) {
+            this.ticketRepository.obtenerNombreParqueadero(dto.parqueaderoId)
+                .then((nombreParqueadero: string) => {
+                    return this.whatsappService!.enviarConfirmacionSalida({
+                        telefono: ticket.telefonoWhatsapp!,
+                        placa: ticket.placa,
+                        totalPagado: calculo.totalAPagar,
+                        nombreParqueadero,
+                        minutosGracia: 10
+                    });
+                })
+                .then((exito: boolean) => {
+                    if (!exito) console.log(`⚠️ No se pudo entregar la confirmación de salida a: ${ticket.telefonoWhatsapp}`);
+                })
+                .catch((err: unknown) => {
+                    console.error('❌ Error crítico al enviar confirmación de salida por WhatsApp:', err);
+                });
+        }
 
         return {
             ticketId: ticket.id,

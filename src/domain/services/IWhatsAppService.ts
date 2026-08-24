@@ -14,6 +14,14 @@ export interface DTOEnvioQRBaileys {
     qrBuffer: Buffer;
 }
 
+export interface DTOConfirmacionSalida {
+    telefono: string;
+    placa: string;
+    totalPagado: number;
+    nombreParqueadero: string;
+    minutosGracia?: number;
+}
+
 export interface IWhatsAppService {
     /**
      * Inicia la conexión WebSocket con WhatsApp (Genera QR en consola si no hay sesión)
@@ -42,4 +50,6 @@ export interface IWhatsAppService {
      * Permite registrar un Callback para escuchar mensajes entrantes
      */
     alRecibirMensaje(callback: (telefono: string, texto: string) => Promise<void>): void;
+
+    enviarConfirmacionSalida(datos: DTOConfirmacionSalida): Promise<boolean>;
 }
