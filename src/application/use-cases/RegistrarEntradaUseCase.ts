@@ -11,7 +11,7 @@ export class RegistrarEntradaUseCase {
 
     async ejecutar(data: IRegistroEntradaDTO) {
 
-        console.log('data :>> ', data);
+
         const placaLimpia = data.placa.trim().toUpperCase();
 
         // 1. Verificar si el operario tiene un turno de caja abierto

@@ -34,7 +34,23 @@ export class RegistrarSalidaUseCase {
 
         // 3. Calcular cobro final
         const fechaSalida = new Date();
+        console.log('⏰ Calculando tarifa:', {
+            fechaEntrada: ticket.fechaEntrada,
+            fechaSalida: fechaSalida,
+            tarifa: ticket.tarifa
+        });
+
         const calculo = CalculadorTarifa.calcular(ticket.fechaEntrada, fechaSalida, ticket.tarifa);
+
+        console.log('💰 Resultado del cálculo:', {
+            minutosTotales: calculo.minutosTotales,
+            horasACobrar: calculo.horasACobrar,
+            subtotalBase: calculo.subtotalBase,
+            aplicoNocturno: calculo.aplicoNocturno,
+            recargoNocturnoAplicado: calculo.recargoNocturnoAplicado,
+            totalAPagar: calculo.totalAPagar,
+            esTiempoGracia: calculo.esTiempoGracia
+        });
 
         // 4. Guardar salida en BDD
         await this.ticketRepository.finalizarTicket({

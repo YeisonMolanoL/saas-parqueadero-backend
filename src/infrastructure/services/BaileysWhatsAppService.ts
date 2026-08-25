@@ -236,6 +236,8 @@ export class BaileysWhatsAppService implements IWhatsAppService {
         nombreParqueadero: string;
         minutosGracia?: number;
     }): Promise<boolean> {
+
+        console.log('datos :>> ', datos);
         const jid = this.formatearJid(datos.telefono);
         const minutos = datos.minutosGracia ?? 10;
 
@@ -246,8 +248,8 @@ export class BaileysWhatsAppService implements IWhatsAppService {
             maximumFractionDigits: 0
         }).format(datos.totalPagado);
 
-        const mensajeTexto = `Gracias, hemos recibido tu pago por valor de *${valorFormateado}*.\n\n` +
-            `Tienes *${minutos} minutos* para salir del parqueadero o empezará un nuevo cobro.\n\n` +
+        const mensajeTexto = `Gracias *${datos.placa}*, hemos recibido tu pago por valor de *${valorFormateado}*.\n` +
+            `Tienes *${minutos} minutos* para salir del parqueadero o empezará un nuevo cobro.\n` +
             `¡Gracias por visitar *${datos.nombreParqueadero}*! 🚗💨`;
 
         await this.sock.sendMessage(jid, { text: mensajeTexto });

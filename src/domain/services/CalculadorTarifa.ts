@@ -4,21 +4,17 @@ import { ValidadorNocturno } from './tarifa/ValidadorNocturno.js';
 import { RecargoStrategyFactory } from './tarifa/RecargoStrategyFactory.js';
 
 export class CalculadorTarifa {
+    /**
+     * Calcula el cobro total del ticket.
+     * 
+     * El tiempo de gracia (minutosGracia) NO afecta el cálculo del cobro.
+     * Se cobra desde el primer minuto de estancia.
+     * El tiempo de gracia es post-pago: es el período que tiene el usuario
+     * para salir físicamente del parqueadero después de pagar.
+     */
     static calcular(fechaEntrada: Date, fechaSalida: Date, tarifa: ITarifaConfig): IResultadoCalculoTarifa {
-        // 1. Evaluar tiempo y gracia (SRP)
+        // 1. Evaluar tiempo (SRP) - siempre se cobra
         const tiempo = ValidadorTiempoEstancia.evaluar(fechaEntrada, fechaSalida, tarifa.minutosGracia);
-
-        if (tiempo.esTiempoGracia) {
-            return {
-                minutosTotales: tiempo.minutosTotales,
-                horasACobrar: 0,
-                subtotalBase: 0,
-                aplicoNocturno: false,
-                recargoNocturnoAplicado: 0,
-                totalAPagar: 0,
-                esTiempoGracia: true
-            };
-        }
 
         const subtotalBase = tiempo.horasACobrar * tarifa.precioBaseHora;
 
