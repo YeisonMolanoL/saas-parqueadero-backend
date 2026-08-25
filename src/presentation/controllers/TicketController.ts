@@ -3,10 +3,11 @@ import { MySQLTicketRepository } from '../../infrastructure/repositories/MySQLTi
 import { ConsultarTicketUseCase } from '../../application/use-cases/ConsultarTicketUseCase.js';
 import { RegistrarSalidaUseCase } from '../../application/use-cases/RegistrarSalidaUseCase.js';
 import { AnularTicketUseCase } from '../../application/use-cases/AnularTicketUseCase.js';
+import { whatsappService } from '../../infrastructure/services/whatsappInstance.js';
 
 const ticketRepository = new MySQLTicketRepository();
 const consultarTicketUseCase = new ConsultarTicketUseCase(ticketRepository);
-const registrarSalidaUseCase = new RegistrarSalidaUseCase(ticketRepository);
+const registrarSalidaUseCase = new RegistrarSalidaUseCase(ticketRepository, whatsappService);
 const anularTicketUseCase = new AnularTicketUseCase(ticketRepository);
 
 export class TicketController {
