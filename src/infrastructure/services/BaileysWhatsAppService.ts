@@ -237,7 +237,6 @@ export class BaileysWhatsAppService implements IWhatsAppService {
         minutosGracia?: number;
     }): Promise<boolean> {
 
-        console.log('datos :>> ', datos);
         const jid = this.formatearJid(datos.telefono);
         const minutos = datos.minutosGracia ?? 10;
 

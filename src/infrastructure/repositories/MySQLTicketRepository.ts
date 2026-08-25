@@ -123,15 +123,7 @@ export class MySQLTicketRepository implements ITicketRepository {
     metodoPago: string;
     turnoSalidaId: number;
   }): Promise<void> {
-    console.log('📝 Finalizando ticket con datos:', {
-      ticketId: datos.ticketId,
-      subtotalBase: datos.subtotalBase,
-      recargoNocturnoAplicado: datos.recargoNocturnoAplicado,
-      aplicoNocturno: datos.aplicoNocturno,
-      totalPagado: datos.totalPagado,
-      metodoPago: datos.metodoPago,
-      turnoSalidaId: datos.turnoSalidaId
-    });
+
 
     const query = `
       UPDATE tickets
@@ -155,8 +147,6 @@ export class MySQLTicketRepository implements ITicketRepository {
       datos.turnoSalidaId,
       datos.ticketId
     ]);
-
-    console.log(`✅ Filas actualizadas: ${result.affectedRows}`);
 
     if (result.affectedRows === 0) {
       throw new Error(`No se pudo finalizar el ticket ${datos.ticketId}. El ticket no existe o no está en estado ACTIVO.`);
