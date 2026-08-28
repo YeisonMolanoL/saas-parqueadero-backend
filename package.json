@@ -5,6 +5,8 @@
   "main": "dist/app.js",
   "scripts": {
     "check": "tsc --noEmit",
+    "migrate": "tsx scripts/migrate.ts",
+    "test": "tsx --test src/domain/services/CalcularPeriodoMensualidad.spec.ts",
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js"

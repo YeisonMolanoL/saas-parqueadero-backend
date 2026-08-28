@@ -68,6 +68,7 @@ export interface ITicketRepository {
     buscarTurnoAbierto(parqueaderoId: number, usuarioId: number): Promise<number | null>;
     buscarTicketActivoPorPlaca(parqueaderoId: number, placa: string): Promise<ITicket | null>;
     buscarTicketActivoPorTelefono(telefonoWhatsapp: string): Promise<ITicket | null>;
+    puedeRegistrarEntrada(parqueaderoId: number): Promise<boolean>;
     buscarTicketPorQr(codigoQr: string): Promise<ITicketDetalle | null>;
     buscarTicketPorId(ticketId: number, parqueaderoId: number): Promise<ITicketDetalle | null>;
     obtenerTarifaVigente(parqueaderoId: number): Promise<number | null>;

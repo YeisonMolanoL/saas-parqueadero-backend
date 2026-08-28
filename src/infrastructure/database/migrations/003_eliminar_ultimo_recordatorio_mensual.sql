@@ -1,0 +1,2 @@
+ALTER TABLE clientes_mensuales
+DROP COLUMN ultimo_recordatorio_enviado;

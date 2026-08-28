@@ -7,6 +7,7 @@ const router = Router();
 
 // POST /api/v1/auth/login-operario
 router.post('/login-operario', AuthController.loginOperario);
+router.post('/login-super-admin', AuthController.loginSuperAdmin);
 
 // Ruta protegida de prueba
 router.get('/perfil', authenticateToken, (req: Request, res: Response) => {

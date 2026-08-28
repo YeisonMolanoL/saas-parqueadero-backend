@@ -5,10 +5,11 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
-import type { IWhatsAppService, DTOBienvenidaBaileys, DTOEnvioQRBaileys } from '../../domain/services/IWhatsAppService.js';
+import type { IWhatsAppService, DTOBienvenidaBaileys, DTOEnvioQRBaileys, DTONotificacionMensualidad, DTORespuestaRenovacionMensualidad, DTOReciboMensualidad } from '../../domain/services/IWhatsAppService.js';
 
 export class BaileysWhatsAppService implements IWhatsAppService {
     private sock: any;
+    private conectado = false;
     private oyenteMensajes?: (telefono: string, texto: string) => Promise<void>;
 
     //  Mapa de sesión: vincula el remoteJid (@lid o @s.whatsapp.net) con el teléfono real de MySQL
@@ -38,11 +39,13 @@ export class BaileysWhatsAppService implements IWhatsAppService {
             }
 
             if (connection === 'close') {
+                this.conectado = false;
                 const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 console.log('🔴 Conexión de WhatsApp cerrada. Reconectando...', shouldReconnect);
                 if (shouldReconnect) this.inicializar();
             } else if (connection === 'open') {
+                this.conectado = true;
                 console.log('🟢 WhatsApp conectado exitosamente mediante Baileys.');
             }
         });
@@ -104,6 +107,10 @@ export class BaileysWhatsAppService implements IWhatsAppService {
 
     alRecibirMensaje(callback: (telefono: string, texto: string) => Promise<void>): void {
         this.oyenteMensajes = callback;
+    }
+
+    estaConectado(): boolean {
+        return this.conectado;
     }
 
     async enviarMensajeIngreso(datos: DTOBienvenidaBaileys): Promise<boolean> {
@@ -253,5 +260,102 @@ export class BaileysWhatsAppService implements IWhatsAppService {
 
         await this.sock.sendMessage(jid, { text: mensajeTexto });
         return true;
+    }
+
+    async enviarNotificacionMensualidad(datos: DTONotificacionMensualidad): Promise<boolean> {
+        const fecha = datos.fechaVencimiento.toLocaleDateString('es-CO');
+        const mensaje = this.construirMensajeMensualidad(datos, fecha);
+        await this.enviarTextoConMapeoTelefono(datos.telefono, mensaje);
+        return true;
+    }
+
+    private construirMensajeMensualidad(datos: DTONotificacionMensualidad, fecha: string): string {
+        const saludo = this.obtenerSaludoFormal();
+        const encabezado = `${saludo}, ${this.formatearDestinatario(datos.nombreCliente, datos.tratamiento)}.`;
+        if (datos.tipo === 'VENCIDA_DIA_4') {
+            return `${encabezado}Su período de gracia terminó. Si no renueva su mensualidad para la placa *${datos.placa}*, los próximos ingresos se cobrarán como parqueo ocasional.`;
+        }
+        if (datos.tipo.startsWith('VENCIDA')) {
+            return `${encabezado}\n\nLa mensualidad para el vehiculo con placa *${datos.placa}* venció el *${fecha}* en *${datos.nombreParqueadero}*. ¿Desea renovarla? Responda *SI* o *NO*.`;
+        }
+        if (datos.tipo === 'RENOVADA') {
+            return `${encabezado}Su mensualidad para la placa *${datos.placa}* fue renovada. Gracias por preferir *${datos.nombreParqueadero}*.`;
+        }
+        return `${encabezado}Su mensualidad para la placa *${datos.placa}* vence el *${fecha}* en *${datos.nombreParqueadero}*.`;
+    }
+
+    private obtenerSaludoFormal(): string {
+        const hora = Number(new Intl.DateTimeFormat('es-CO', {
+            hour: '2-digit',
+            hourCycle: 'h23',
+            timeZone: 'America/Bogota'
+        }).format(new Date()));
+
+        if (hora >= 5 && hora < 12) return 'Buenos días';
+        if (hora >= 12 && hora < 18) return 'Buenas tardes';
+        return 'Buenas noches';
+    }
+
+    async enviarMenuRenovacionMensualidad(datos: { telefono: string; placa: string }): Promise<boolean> {
+        const mensaje = `Elige el medio para renovar la mensualidad para la placa *${datos.placa}*:\n\n1. *Efectivo*\n0. *Cancelar*`;
+        await this.enviarTextoConMapeoTelefono(datos.telefono, mensaje);
+        return true;
+    }
+
+    async enviarConfirmacionRechazoRenovacion(telefono: string, placa: string): Promise<boolean> {
+        await this.enviarTextoConMapeoTelefono(telefono, `No enviaremos más avisos de renovación para la placa *${placa}* en este ciclo.`);
+        return true;
+    }
+
+    async enviarConfirmacionCancelacionRenovacion(telefono: string, placa: string): Promise<boolean> {
+        await this.enviarTextoConMapeoTelefono(telefono, `La solicitud de renovación para la placa *${placa}* fue cancelada.`);
+        return true;
+    }
+
+    async enviarInstruccionPagoPresencial(datos: DTORespuestaRenovacionMensualidad): Promise<boolean> {
+        if (!datos.fechaLimite) {
+            throw new Error('La fecha límite para el pago presencial es requerida.');
+        }
+        const fecha = datos.fechaLimite.toLocaleDateString('es-CO');
+        const mensaje = `${this.formatearDestinatario(datos.nombreCliente, datos.tratamiento)}. Puede acercarse a pagar en efectivo la mensualidad para la placa *${datos.placa}* hasta el final del día hábil *${fecha}*. La renovación se aplicará cuando el cajero registre el pago.`;
+        await this.enviarTextoConMapeoTelefono(datos.telefono, mensaje);
+        return true;
+    }
+
+    async enviarReciboMensualidad(datos: DTOReciboMensualidad): Promise<boolean> {
+        const valor = new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            maximumFractionDigits: 0
+        }).format(datos.monto);
+        const inicio = datos.periodoInicio.toLocaleDateString('es-CO');
+        const fin = datos.periodoFin.toLocaleDateString('es-CO');
+        const destinatario = this.formatearDestinatario(datos.nombreCliente, datos.tratamiento);
+        const mensaje = `Recibo de mensualidad No. *${datos.pagoId}*\n\n${destinatario}\nPlaca: *${datos.placa}*\nParqueadero: *${datos.nombreParqueadero}*\nValor pagado: *${valor}*\nMedio de pago: *${datos.metodoPago}*\nPeriodo: *${inicio}* al *${fin}*.`;
+        await this.enviarTextoConMapeoTelefono(datos.telefono, mensaje);
+        return true;
+    }
+
+    private formatearDestinatario(nombreCliente: string, tratamiento?: 'SR' | 'SRA' | 'NEUTRO'): string {
+        if (tratamiento === 'SR') return `Sr. *${nombreCliente}*`;
+        if (tratamiento === 'SRA') return `Sra. *${nombreCliente}*`;
+        return `*${nombreCliente}*`;
+    }
+
+    private async enviarTextoConMapeoTelefono(telefono: string, mensaje: string): Promise<void> {
+        const telefonoLimpio = this.normalizarTelefono(telefono);
+        this.telefonosEnEspera.add(telefonoLimpio);
+        const envio = await this.sock.sendMessage(this.formatearJid(telefono), { text: mensaje });
+        const remoteJid = envio?.key?.remoteJid;
+        if (remoteJid) {
+            this.mapaLidATelefono.set(remoteJid, telefonoLimpio);
+        }
+    }
+
+    private normalizarTelefono(telefono: string): string {
+        const telefonoLimpio = telefono.replace(/\D/g, '');
+        return telefonoLimpio.startsWith('57') && telefonoLimpio.length === 12
+            ? telefonoLimpio.substring(2)
+            : telefonoLimpio;
     }
 }

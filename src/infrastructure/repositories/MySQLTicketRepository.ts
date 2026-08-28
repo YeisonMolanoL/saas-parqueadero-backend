@@ -5,6 +5,34 @@ import type { TurnoActivoRow, TarifaActivaRow, TicketConsultaRow } from '../type
 
 export class MySQLTicketRepository implements ITicketRepository {
 
+  async puedeRegistrarEntrada(parqueaderoId: number): Promise<boolean> {
+    const [rows] = await dbPool.execute<RowDataPacket[]>(`
+      SELECT parqueadero.estado AS estado_parqueadero,
+             plan.limite_motos, COUNT(ticket.id) AS vehiculos_activos,
+              suscripcion.estado_pago, suscripcion.fecha_vencimiento
+      FROM suscripciones_parqueadero suscripcion
+      INNER JOIN planes_saas plan ON plan.id = suscripcion.plan_id
+      INNER JOIN parqueaderos parqueadero ON parqueadero.id = suscripcion.parqueadero_id
+      LEFT JOIN tickets ticket ON ticket.parqueadero_id = suscripcion.parqueadero_id AND ticket.estado = 'ACTIVO'
+      WHERE suscripcion.parqueadero_id = ?
+        AND suscripcion.id = (
+          SELECT ultima.id
+          FROM suscripciones_parqueadero ultima
+          WHERE ultima.parqueadero_id = suscripcion.parqueadero_id
+          ORDER BY ultima.id DESC
+          LIMIT 1
+        )
+      GROUP BY parqueadero.estado, plan.limite_motos, suscripcion.estado_pago, suscripcion.fecha_vencimiento
+    `, [parqueaderoId]);
+    const capacidad = rows[0];
+    if (!capacidad) return false;
+    const suscripcionAprobada = capacidad.estado_pago === 'APROBADO';
+    const pruebaGratuita = capacidad.estado_parqueadero === 'PRUEBA_GRATUITA';
+    const suscripcionVigente = capacidad.fecha_vencimiento >= new Date().toISOString().slice(0, 10);
+    return (pruebaGratuita || (suscripcionAprobada && suscripcionVigente))
+      && Number(capacidad.vehiculos_activos) < Number(capacidad.limite_motos);
+  }
+
   async buscarTurnoAbierto(parqueaderoId: number, usuarioId: number): Promise<number | null> {
     const query = `
       SELECT id FROM turnos_caja 
@@ -98,7 +126,7 @@ export class MySQLTicketRepository implements ITicketRepository {
         parqueadero_id, codigo_qr, placa, telefono_whatsapp, 
         tipo_vehiculo, observaciones_danos, fecha_entrada, estado, turno_ingreso_id
       )
-      VALUES (?, UUID_TO_BIN(?), ?, ?, 'OCASIONAL', ?, NOW(), 'ACTIVO', ?)
+      VALUES (?, UUID_TO_BIN(?), ?, ?, ?, ?, NOW(), 'ACTIVO', ?)
     `;
 
     const values = [
@@ -106,6 +134,7 @@ export class MySQLTicketRepository implements ITicketRepository {
       ticket.codigoQr,
       ticket.placa,
       ticket.telefonoWhatsapp ?? null,
+      ticket.tipoVehiculo ?? 'OCASIONAL',
       ticket.observacionesDanos ?? null,
       ticket.turnoIngresoId
     ];

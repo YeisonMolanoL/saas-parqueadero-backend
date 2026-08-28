@@ -1,0 +1,1 @@
+ALTER TABLE clientes_mensuales ADD CONSTRAINT chk_clientes_mensuales_dia_pago CHECK (dia_pago_mensual BETWEEN 1 AND 30);

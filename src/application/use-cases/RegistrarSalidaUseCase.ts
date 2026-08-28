@@ -4,8 +4,8 @@ import { CalculadorTarifa } from '../../domain/services/CalculadorTarifa.js';
 
 export class RegistrarSalidaUseCase {
     constructor(
-        private ticketRepository: ITicketRepository,
-        private whatsappService?: IWhatsAppService
+        private readonly ticketRepository: ITicketRepository,
+        private readonly whatsappService?: IWhatsAppService
     ) { }
 
     async ejecutar(dto: IRegistrarSalidaDTO) {
@@ -40,7 +40,9 @@ export class RegistrarSalidaUseCase {
             tarifa: ticket.tarifa
         });
 
-        const calculo = CalculadorTarifa.calcular(ticket.fechaEntrada, fechaSalida, ticket.tarifa);
+        const calculo = ticket.tipoVehiculo === 'MENSUAL'
+            ? { minutosTotales: 0, horasACobrar: 0, subtotalBase: 0, aplicoNocturno: false, recargoNocturnoAplicado: 0, totalAPagar: 0, esTiempoGracia: false }
+            : CalculadorTarifa.calcular(ticket.fechaEntrada, fechaSalida, ticket.tarifa);
 
         console.log('💰 Resultado del cálculo:', {
             minutosTotales: calculo.minutosTotales,

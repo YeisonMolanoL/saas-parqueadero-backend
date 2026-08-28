@@ -1,8 +1,66 @@
-import type { IUsuarioRepository, IUsuario } from '../../domain/repositories/IUsuarioRepository.js';
+import type { IUsuarioRepository, IUsuario, IRegistrarOperarioDTO } from '../../domain/repositories/IUsuarioRepository.js';
+import type { PoolConnection } from 'mysql2/promise';
 import { dbPool } from '../database/mysql.config.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export class MySQLUsuarioRepository implements IUsuarioRepository {
+  async listarPorParqueadero(parqueaderoId: number): Promise<IUsuario[]> {
+    const [rows] = await dbPool.execute<RowDataPacket[]>(`
+      SELECT usuario.id, usuario.parqueadero_id AS parqueaderoId, usuario.rol_id AS rolId,
+           rol.nombre AS rolNombre, usuario.nombre, usuario.documento_id AS documentoId,
+           usuario.telefono, usuario.email, usuario.password_hash AS passwordHash,
+           usuario.pin_hash AS pinHash, usuario.intentos_fallidos_pin AS intentosFallidosPin,
+           usuario.bloqueado_hasta AS bloqueadoHasta, usuario.estado
+      FROM usuarios usuario
+      INNER JOIN roles rol ON rol.id = usuario.rol_id
+      WHERE usuario.parqueadero_id = ? AND rol.nombre IN ('ADMIN_PARQUEADERO', 'OPERARIO')
+      ORDER BY usuario.nombre ASC
+    `, [parqueaderoId]);
+    return rows as IUsuario[];
+  }
+
+  async registrarOperario(parqueaderoId: number, administradorId: number, datos: IRegistrarOperarioDTO): Promise<IUsuario> {
+    const connection = await dbPool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const rolId = await this.obtenerRolOperario(connection);
+      const [result] = await connection.execute<ResultSetHeader>(`
+        INSERT INTO usuarios (parqueadero_id, rol_id, nombre, documento_id, telefono, email, pin_hash, creado_por, estado)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVO')
+      `, [parqueaderoId, rolId, datos.nombre.trim(), datos.documentoId.trim(), datos.telefono.trim(), datos.email?.trim() ?? null, datos.pinHash, administradorId]);
+      await this.registrarAuditoria(connection, parqueaderoId, administradorId, 'REGISTRO_OPERARIO', `Operario ${result.insertId}`);
+      await connection.commit();
+      const usuario = await this.buscarPorId(result.insertId);
+      if (!usuario) throw new Error('No fue posible recuperar el operario creado.');
+      return usuario;
+    } catch (error: unknown) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async cambiarEstadoOperario(parqueaderoId: number, operarioId: number, administradorId: number, estado: 'ACTIVO' | 'INACTIVO', motivo: string): Promise<void> {
+    const connection = await dbPool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [result] = await connection.execute<ResultSetHeader>(`
+        UPDATE usuarios usuario
+        INNER JOIN roles rol ON rol.id = usuario.rol_id
+        SET usuario.estado = ?
+        WHERE usuario.id = ? AND usuario.parqueadero_id = ? AND rol.nombre = 'OPERARIO'
+      `, [estado, operarioId, parqueaderoId]);
+      if (result.affectedRows !== 1) throw new Error('El operario no existe en este parqueadero.');
+      await this.registrarAuditoria(connection, parqueaderoId, administradorId, `${estado}_OPERARIO`, motivo);
+      await connection.commit();
+    } catch (error: unknown) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
 
     async buscarPorDocumento(parqueaderoId: number | null, documentoId: string): Promise<IUsuario | null> {
         // Consulta usando el índice directo `uk_parqueadero_documento`
@@ -11,6 +69,7 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         id, 
         parqueadero_id AS parqueaderoId,
         rol_id AS rolId,
+        rol.nombre AS rolNombre,
         nombre,
         documento_id AS documentoId,
         telefono,
@@ -20,7 +79,8 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         intentos_fallidos_pin AS intentosFallidosPin,
         bloqueado_hasta AS bloqueadoHasta,
         estado
-      FROM usuarios 
+      FROM usuarios
+      INNER JOIN roles rol ON rol.id = usuarios.rol_id
       WHERE (parqueadero_id = ? OR (? IS NULL AND parqueadero_id IS NULL))
         AND documento_id = ?
       LIMIT 1
@@ -33,14 +93,29 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         return rows[0] as IUsuario;
     }
 
+    async buscarSuperAdminPorDocumento(documentoId: string): Promise<IUsuario | null> {
+      const [rows] = await dbPool.execute<RowDataPacket[]>(`
+        SELECT usuario.id, usuario.parqueadero_id AS parqueaderoId, usuario.rol_id AS rolId,
+             rol.nombre AS rolNombre, usuario.nombre, usuario.documento_id AS documentoId,
+             usuario.telefono, usuario.email, usuario.password_hash AS passwordHash,
+             usuario.pin_hash AS pinHash, usuario.intentos_fallidos_pin AS intentosFallidosPin,
+             usuario.bloqueado_hasta AS bloqueadoHasta, usuario.estado
+        FROM usuarios usuario
+        INNER JOIN roles rol ON rol.id = usuario.rol_id
+        WHERE usuario.parqueadero_id IS NULL AND usuario.documento_id = ? AND rol.nombre = 'SUPER_ADMIN'
+        LIMIT 1
+      `, [documentoId]);
+      return rows[0] ? rows[0] as IUsuario : null;
+    }
+
     async buscarPorId(id: number): Promise<IUsuario | null> {
         const query = `
       SELECT 
-        id, parqueadero_id AS parqueaderoId, rol_id AS rolId, nombre,
+        usuario.id, usuario.parqueadero_id AS parqueaderoId, usuario.rol_id AS rolId, rol.nombre AS rolNombre, usuario.nombre,
         documento_id AS documentoId, telefono, email, password_hash AS passwordHash,
         pin_hash AS pinHash, intentos_fallidos_pin AS intentosFallidosPin,
         bloqueado_hasta AS bloqueadoHasta, estado
-      FROM usuarios WHERE id = ? LIMIT 1
+      FROM usuarios usuario INNER JOIN roles rol ON rol.id = usuario.rol_id WHERE usuario.id = ? LIMIT 1
     `;
         const [rows] = await dbPool.execute<RowDataPacket[]>(query, [id]);
         if (rows.length === 0) return null;
@@ -60,5 +135,19 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
     async resetearIntentos(usuarioId: number): Promise<void> {
         const query = `UPDATE usuarios SET intentos_fallidos_pin = 0, bloqueado_hasta = NULL WHERE id = ?`;
         await dbPool.execute<ResultSetHeader>(query, [usuarioId]);
+    }
+
+    private async obtenerRolOperario(connection: PoolConnection): Promise<number> {
+      const [rows] = await connection.execute<RowDataPacket[]>(`SELECT id FROM roles WHERE nombre = 'OPERARIO' LIMIT 1`);
+      const row = rows[0];
+      if (!row) throw new Error('No existe el rol OPERARIO.');
+      return row.id as number;
+    }
+
+    private async registrarAuditoria(connection: PoolConnection, parqueaderoId: number, usuarioId: number, tipoAccion: string, motivo: string): Promise<void> {
+      await connection.execute(`
+        INSERT INTO auditoria_eventos (parqueadero_id, usuario_id, tipo_accion, motivo)
+        VALUES (?, ?, ?, ?)
+      `, [parqueaderoId, usuarioId, tipoAccion, motivo]);
     }
 }

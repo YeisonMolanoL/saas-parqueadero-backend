@@ -1,10 +1,12 @@
 import type { Request, Response } from 'express';
 import { MySQLTicketRepository } from '../../infrastructure/repositories/MySQLTicketRepository.js';
+import { MySQLClienteMensualRepository } from '../../infrastructure/repositories/MySQLClienteMensualRepository.js';
 import { RegistrarEntradaUseCase } from '../../application/use-cases/RegistrarEntradaUseCase.js';
 import { whatsappService } from '../../infrastructure/services/whatsappInstance.js';
 
 const ticketRepository = new MySQLTicketRepository();
-const registrarEntradaUseCase = new RegistrarEntradaUseCase(ticketRepository, whatsappService);
+const clienteMensualRepository = new MySQLClienteMensualRepository();
+const registrarEntradaUseCase = new RegistrarEntradaUseCase(ticketRepository, clienteMensualRepository, whatsappService);
 
 export class EntradaController {
 

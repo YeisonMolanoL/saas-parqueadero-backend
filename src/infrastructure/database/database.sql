@@ -38,6 +38,7 @@ CREATE TABLE
         ciudad VARCHAR(50) NOT NULL,
         direccion VARCHAR(150) NOT NULL,
         telefono_contacto VARCHAR(20) NOT NULL,
+        fecha_fin_prueba DATE NULL,
         -- Estado de Licencia SaaS
         estado ENUM (
             'PRUEBA_GRATUITA',
@@ -182,20 +183,16 @@ CREATE TABLE
     clientes_mensuales (
         id INT AUTO_INCREMENT PRIMARY KEY,
         parqueadero_id INT NOT NULL,
-        usuario_id INT NULL UNIQUE,
+        usuario_id INT NULL,
         placa VARCHAR(10) NOT NULL,
         nombre_propietario VARCHAR(100) NOT NULL,
+        tratamiento ENUM ('SR', 'SRA', 'NEUTRO') NOT NULL,
         telefono_whatsapp VARCHAR(20) NOT NULL,
+        documento_identidad VARCHAR(30) NULL,
+        dia_pago_mensual TINYINT NOT NULL CHECK (dia_pago_mensual BETWEEN 1 AND 30),
         fecha_inicio DATE NOT NULL,
         fecha_vencimiento DATE NOT NULL,
-        -- Control de Notificaciones Automatizadas
-        ultimo_recordatorio_enviado DATETIME NULL,
-        estado_notificacion ENUM (
-            'SIN_ENVIAR',
-            'RECORDATORIO_3_DIAS',
-            'NOTIFICADO_VENCIDO'
-        ) DEFAULT 'SIN_ENVIAR',
-        estado ENUM ('AL_DIA', 'POR_VENCER', 'VENCIDO') DEFAULT 'AL_DIA',
+        estado ENUM ('AL_DIA', 'POR_VENCER', 'VENCIDO', 'CANCELADA') DEFAULT 'AL_DIA',
         creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (parqueadero_id) REFERENCES parqueaderos (id) ON DELETE CASCADE,
@@ -302,11 +299,96 @@ CREATE TABLE
             'OTRO'
         ) NOT NULL,
         transaccion_id VARCHAR(100) NULL,
-        turno_caja_id INT NOT NULL,
+        idempotency_key VARCHAR(64) NOT NULL UNIQUE,
+        turno_caja_id INT NULL,
+        canal ENUM ('FISICO', 'WHATSAPP') NOT NULL,
+        periodo_pagado_inicio DATE NOT NULL,
+        periodo_pagado_fin DATE NOT NULL,
         fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (parqueadero_id) REFERENCES parqueaderos (id) ON DELETE CASCADE,
         FOREIGN KEY (cliente_id) REFERENCES clientes_mensuales (id),
-        FOREIGN KEY (turno_caja_id) REFERENCES turnos_caja (id)
+        FOREIGN KEY (turno_caja_id) REFERENCES turnos_caja (id),
+        UNIQUE KEY uk_pagos_mensualidades_periodo (cliente_id, periodo_pagado_inicio)
+    );
+
+CREATE TABLE
+    intenciones_pago_mensualidades (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        parqueadero_id INT NOT NULL,
+        cliente_id INT NOT NULL,
+        fecha_vencimiento_ciclo DATE NOT NULL,
+        canal ENUM ('FISICO', 'WHATSAPP') NOT NULL,
+        metodo_pago ENUM (
+            'EFECTIVO',
+            'WOMPI_PSE',
+            'WOMPI_TARJETA',
+            'WOMPI_BRE_B',
+            'NEQUI',
+            'DAVIPLATA',
+            'OTRO'
+        ) NULL,
+        monto DECIMAL(10, 2) NOT NULL,
+        estado ENUM (
+            'PENDIENTE_SELECCION',
+            'PENDIENTE_PAGO_DIGITAL',
+            'PENDIENTE_PAGO_PRESENCIAL',
+            'PENDIENTE_VERIFICACION',
+            'PAGADA',
+            'RECHAZADA',
+            'CANCELADA',
+            'EXPIRADA'
+        ) NOT NULL,
+        referencia_externa VARCHAR(100) NULL,
+        pago_mensualidad_id INT NULL,
+        fecha_expiracion DATETIME NULL,
+        creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (parqueadero_id) REFERENCES parqueaderos (id) ON DELETE CASCADE,
+        FOREIGN KEY (cliente_id) REFERENCES clientes_mensuales (id) ON DELETE CASCADE,
+        FOREIGN KEY (pago_mensualidad_id) REFERENCES pagos_mensualidades (id),
+        UNIQUE KEY uk_intencion_referencia_externa (referencia_externa),
+        UNIQUE KEY uk_intencion_whatsapp_ciclo (cliente_id, fecha_vencimiento_ciclo, canal)
+    );
+
+CREATE TABLE
+    configuracion_mensualidades (
+        parqueadero_id INT NOT NULL PRIMARY KEY,
+        dias_gracia TINYINT NOT NULL DEFAULT 3,
+        dias_aviso_previo TINYINT NOT NULL DEFAULT 3,
+        dias_aviso_vencido TINYINT NOT NULL DEFAULT 5,
+        hora_envio_whatsapp TIME NOT NULL DEFAULT '09:00:00',
+        horas_plazo_pago_presencial TINYINT NOT NULL DEFAULT 24,
+        whatsapp_habilitado BOOLEAN NOT NULL DEFAULT TRUE,
+        actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (parqueadero_id) REFERENCES parqueaderos (id) ON DELETE CASCADE
+    );
+
+CREATE TABLE
+    notificaciones_mensualidades (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        parqueadero_id INT NOT NULL,
+        cliente_id INT NOT NULL,
+        fecha_vencimiento_ciclo DATE NOT NULL,
+        tipo ENUM (
+            'POR_VENCER_3_DIAS',
+            'POR_VENCER_2_DIAS',
+            'POR_VENCER_1_DIA',
+            'VENCIDA_DIA_1',
+            'VENCIDA_DIA_2',
+            'VENCIDA_DIA_3',
+            'VENCIDA_DIA_4',
+            'VENCIDA_DIA_5',
+            'RENOVADA'
+        ) NOT NULL,
+        estado_envio ENUM ('PENDIENTE', 'PROCESANDO', 'ENVIADO', 'FALLIDO') NOT NULL DEFAULT 'PENDIENTE',
+        intentos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+        ultimo_error VARCHAR(500) NULL,
+        bloqueado_en DATETIME NULL,
+        enviado_en DATETIME NULL,
+        creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (parqueadero_id) REFERENCES parqueaderos (id) ON DELETE CASCADE,
+        FOREIGN KEY (cliente_id) REFERENCES clientes_mensuales (id) ON DELETE CASCADE,
+        UNIQUE KEY uk_notificacion_mensualidad_ciclo (cliente_id, fecha_vencimiento_ciclo, tipo)
     );
 
 -- -----------------------------------------------------------------------------
@@ -333,5 +415,9 @@ CREATE INDEX idx_tickets_parqueadero_placa ON tickets (parqueadero_id, placa);
 CREATE INDEX idx_tickets_estado ON tickets (parqueadero_id, estado);
 
 CREATE INDEX idx_clientes_parqueadero_placa ON clientes_mensuales (parqueadero_id, placa);
+
+CREATE INDEX idx_clientes_mensuales_vencimiento ON clientes_mensuales (fecha_vencimiento, estado);
+
+CREATE INDEX idx_notificaciones_mensuales_pendientes ON notificaciones_mensualidades (estado_envio, intentos, creado_en);
 
 CREATE INDEX idx_usuarios_parqueadero ON usuarios (parqueadero_id);

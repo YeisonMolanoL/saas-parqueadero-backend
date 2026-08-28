@@ -28,4 +28,26 @@ export class AuthController {
             res.status(401).json({ error: error.message });
         }
     }
+
+    static async loginSuperAdmin(req: Request, res: Response): Promise<void> {
+        try {
+            const { documentoId, pin } = req.body;
+            if (!documentoId || !pin) {
+                res.status(400).json({ error: 'Documento y PIN son requeridos.' });
+                return;
+            }
+            const resultado = await loginOperarioUseCase.ejecutar({
+                parqueaderoId: null,
+                documentoId: String(documentoId),
+                pin: String(pin)
+            });
+            if (resultado.usuario.rolNombre !== 'SUPER_ADMIN') {
+                res.status(403).json({ error: 'La cuenta no tiene rol SUPER_ADMIN.' });
+                return;
+            }
+            res.status(200).json(resultado);
+        } catch (error: unknown) {
+            res.status(401).json({ error: error instanceof Error ? error.message : 'Credenciales inválidas.' });
+        }
+    }
 }

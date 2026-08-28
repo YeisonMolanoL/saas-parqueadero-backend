@@ -3,20 +3,27 @@ import type {
     IClienteMensual,
     IPagoMensualidad,
     ICrearClienteMensualDTO,
-    IRegistrarPagoMensualidadDTO
+    IRegistrarPagoMensualidadDTO,
+    IActualizarClienteMensualDTO,
+    IListarMensualidadesDTO,
+    IPaginaMensualidades,
+    IResumenMensualidades,
+    IReciboMensualidad
 } from '../../domain/types/clienteMensual.types.js';
 import { dbPool } from '../database/mysql.config.js';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
 import type { ClienteRow, PagoRow } from '../types/mensual-mysql.types.js';
+import type { IPeriodoMensualidad } from '../../domain/services/CalcularPeriodoMensualidad.js';
 
 export class MySQLClienteMensualRepository implements IClienteMensualRepository {
 
     async crearCliente(datos: ICrearClienteMensualDTO): Promise<IClienteMensual> {
         const query = `
       INSERT INTO clientes_mensuales (
-        parqueadero_id, placa, nombre_propietario, telefono_whatsapp,
-        fecha_inicio, fecha_vencimiento, estado
-      ) VALUES (?, ?, ?, ?, ?, ?, 'AL_DIA')
+                parqueadero_id, placa, nombre_propietario, tratamiento, telefono_whatsapp,
+        documento_identidad, dia_pago_mensual, fecha_inicio, fecha_vencimiento, estado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'AL_DIA')
     `;
 
         const fechaInicio = datos.fechaInicioContrato ? new Date(datos.fechaInicioContrato) : new Date();
@@ -28,7 +35,10 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
             datos.parqueaderoId,
             datos.placa.toUpperCase().trim(),
             datos.nombreCliente.trim(),
+            datos.tratamiento,
             datos.telefono ?? '',
+            datos.documentoIdentidad ?? null,
+            datos.diaPagoMensual ?? fechaInicio.getDate(),
             fechaInicio,
             fechaVencimiento
         ]);
@@ -39,8 +49,8 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
 
     async buscarPorId(id: number, parqueaderoId: number): Promise<IClienteMensual | null> {
         const query = `
-      SELECT id, parqueadero_id, usuario_id, placa, nombre_propietario,
-             telefono_whatsapp, fecha_inicio, fecha_vencimiento, estado, creado_en
+    SELECT id, parqueadero_id, usuario_id, placa, nombre_propietario, tratamiento,
+             telefono_whatsapp, documento_identidad, dia_pago_mensual, fecha_inicio, fecha_vencimiento, estado, creado_en
       FROM clientes_mensuales
       WHERE id = ? AND parqueadero_id = ?
       LIMIT 1
@@ -52,8 +62,8 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
 
     async buscarPorPlaca(placa: string, parqueaderoId: number): Promise<IClienteMensual | null> {
         const query = `
-      SELECT id, parqueadero_id, usuario_id, placa, nombre_propietario,
-             telefono_whatsapp, fecha_inicio, fecha_vencimiento, estado, creado_en
+    SELECT id, parqueadero_id, usuario_id, placa, nombre_propietario, tratamiento,
+             telefono_whatsapp, documento_identidad, dia_pago_mensual, fecha_inicio, fecha_vencimiento, estado, creado_en
       FROM clientes_mensuales
       WHERE placa = ? AND parqueadero_id = ?
       LIMIT 1
@@ -63,10 +73,114 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
         return this.mapearCliente(rows[0]);
     }
 
+    async tieneAccesoMensual(placa: string, parqueaderoId: number): Promise<boolean> {
+        const [rows] = await dbPool.execute<RowDataPacket[]>(`
+            SELECT id
+                        FROM clientes_mensuales cliente
+                        LEFT JOIN configuracion_mensualidades configuracion
+                                ON configuracion.parqueadero_id = cliente.parqueadero_id
+                        WHERE cliente.parqueadero_id = ? AND cliente.placa = ?
+                            AND cliente.estado != 'CANCELADA'
+                            AND CURDATE() <= DATE_ADD(cliente.fecha_vencimiento, INTERVAL COALESCE(configuracion.dias_gracia, 3) DAY)
+            LIMIT 1
+        `, [parqueaderoId, placa.toUpperCase().trim()]);
+        return rows[0] !== undefined;
+    }
+
+    async actualizarCliente(id: number, parqueaderoId: number, usuarioId: number, datos: IActualizarClienteMensualDTO): Promise<IClienteMensual> {
+        const connection = await dbPool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [result] = await connection.execute<ResultSetHeader>(`
+                UPDATE clientes_mensuales
+                SET nombre_propietario = ?, tratamiento = ?, telefono_whatsapp = ?,
+                    documento_identidad = ?, dia_pago_mensual = ?
+                WHERE id = ? AND parqueadero_id = ? AND estado != 'CANCELADA'
+            `, [datos.nombreCliente.trim(), datos.tratamiento, datos.telefono.trim(), datos.documentoIdentidad ?? null, datos.diaPagoMensual, id, parqueaderoId]);
+            if (result.affectedRows !== 1) throw new Error('La mensualidad no existe o está cancelada.');
+            await this.registrarAuditoria(connection, parqueaderoId, usuarioId, 'ACTUALIZACION_MENSUALIDAD', id);
+            await connection.commit();
+        } catch (error: unknown) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+        return this.obtenerClienteActualizado(id, parqueaderoId);
+    }
+
+    async cambiarPlaca(id: number, parqueaderoId: number, usuarioId: number, placaNueva: string): Promise<IClienteMensual> {
+        const connection = await dbPool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [result] = await connection.execute<ResultSetHeader>(`
+                UPDATE clientes_mensuales
+                SET placa = ?
+                WHERE id = ? AND parqueadero_id = ? AND estado != 'CANCELADA'
+            `, [placaNueva.toUpperCase().trim(), id, parqueaderoId]);
+            if (result.affectedRows !== 1) throw new Error('La mensualidad no existe o está cancelada.');
+            await this.registrarAuditoria(connection, parqueaderoId, usuarioId, 'CAMBIO_PLACA_MENSUALIDAD', id);
+            await connection.commit();
+        } catch (error: unknown) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+        return this.obtenerClienteActualizado(id, parqueaderoId);
+    }
+
+    async cambiarEstado(
+        id: number,
+        parqueaderoId: number,
+        estado: 'CANCELADA' | 'AL_DIA' | 'POR_VENCER' | 'VENCIDO',
+        usuarioId: number,
+        motivo: string
+    ): Promise<IClienteMensual> {
+        const connection = await dbPool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [result] = await connection.execute<ResultSetHeader>(`
+                UPDATE clientes_mensuales
+                SET estado = ?
+                WHERE id = ? AND parqueadero_id = ?
+            `, [estado, id, parqueaderoId]);
+            if (result.affectedRows !== 1) {
+                throw new Error('La mensualidad no existe.');
+            }
+            await connection.execute(`
+                INSERT INTO auditoria_eventos (parqueadero_id, usuario_id, tipo_accion, motivo, detalles)
+                VALUES (?, ?, ?, ?, JSON_OBJECT('clienteMensualId', ?, 'estado', ?))
+            `, [parqueaderoId, usuarioId, estado === 'CANCELADA' ? 'CANCELACION_MENSUALIDAD' : 'REACTIVACION_MENSUALIDAD', motivo, id, estado]);
+            await connection.commit();
+        } catch (error: unknown) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+        return this.obtenerClienteActualizado(id, parqueaderoId);
+    }
+
+    private async obtenerClienteActualizado(id: number, parqueaderoId: number): Promise<IClienteMensual> {
+        const cliente = await this.buscarPorId(id, parqueaderoId);
+        if (!cliente) {
+            throw new Error('No fue posible recuperar la mensualidad actualizada.');
+        }
+        return cliente;
+    }
+
+    private async registrarAuditoria(connection: PoolConnection, parqueaderoId: number, usuarioId: number, tipoAccion: string, clienteMensualId: number): Promise<void> {
+        await connection.execute(`
+            INSERT INTO auditoria_eventos (parqueadero_id, usuario_id, tipo_accion, detalles)
+            VALUES (?, ?, ?, JSON_OBJECT('clienteMensualId', ?))
+        `, [parqueaderoId, usuarioId, tipoAccion, clienteMensualId]);
+    }
+
     async listarPorParqueadero(parqueaderoId: number): Promise<IClienteMensual[]> {
         const query = `
-      SELECT id, parqueadero_id, usuario_id, placa, nombre_propietario,
-             telefono_whatsapp, fecha_inicio, fecha_vencimiento, estado, creado_en
+    SELECT id, parqueadero_id, usuario_id, placa, nombre_propietario, tratamiento,
+             telefono_whatsapp, documento_identidad, dia_pago_mensual, fecha_inicio, fecha_vencimiento, estado, creado_en
       FROM clientes_mensuales
       WHERE parqueadero_id = ?
       ORDER BY nombre_propietario ASC
@@ -75,45 +189,279 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
         return rows.map((fila) => this.mapearCliente(fila));
     }
 
-    async registrarPago(datos: IRegistrarPagoMensualidadDTO): Promise<IPagoMensualidad> {
-        const query = `
-      INSERT INTO pagos_mensualidades (
-        parqueadero_id, cliente_id, monto, metodo_pago, turno_caja_id, fecha_pago
-      ) VALUES (?, ?, ?, ?, ?, NOW())
-    `;
+    async listarAdministrativo(parqueaderoId: number, filtros: IListarMensualidadesDTO): Promise<IPaginaMensualidades> {
+        const pagina = Number.isInteger(filtros.pagina) && filtros.pagina > 0 ? filtros.pagina : 1;
+        const limite = Number.isInteger(filtros.limite) && filtros.limite > 0 ? Math.min(filtros.limite, 100) : 20;
+        const desplazamiento = (pagina - 1) * limite;
+        const busqueda = filtros.busqueda?.trim() ?? '';
+        const estado = filtros.estado ?? null;
+        const condicion = `
+            parqueadero_id = ?
+            AND (? = '' OR placa LIKE CONCAT('%', ?, '%') OR nombre_propietario LIKE CONCAT('%', ?, '%'))
+            AND (? IS NULL OR estado = ?)
+        `;
+        const [rows] = await dbPool.execute<ClienteRow[]>(`
+            SELECT id, parqueadero_id, usuario_id, placa, nombre_propietario, tratamiento,
+                   telefono_whatsapp, documento_identidad, dia_pago_mensual, fecha_inicio, fecha_vencimiento, estado, creado_en
+            FROM clientes_mensuales
+            WHERE ${condicion}
+            ORDER BY fecha_vencimiento ASC, nombre_propietario ASC
+            LIMIT ${limite} OFFSET ${desplazamiento}
+        `, [parqueaderoId, busqueda, busqueda, busqueda, estado, estado]);
+        const [conteoRows] = await dbPool.execute<RowDataPacket[]>(`
+            SELECT COUNT(*) AS total
+            FROM clientes_mensuales
+            WHERE ${condicion}
+        `, [parqueaderoId, busqueda, busqueda, busqueda, estado, estado]);
 
-        const [result] = await dbPool.execute<ResultSetHeader>(query, [
+        return {
+            items: rows.map((row) => this.mapearCliente(row)),
+            total: Number(conteoRows[0]?.total ?? 0),
+            pagina,
+            limite
+        };
+    }
+
+    async obtenerResumenAdministrativo(parqueaderoId: number): Promise<IResumenMensualidades> {
+        const [rows] = await dbPool.execute<RowDataPacket[]>(`
+            SELECT
+                SUM(estado = 'AL_DIA') AS al_dia,
+                SUM(estado = 'POR_VENCER') AS por_vencer,
+                SUM(estado = 'VENCIDO') AS vencidas,
+                SUM(estado = 'CANCELADA') AS canceladas,
+                (
+                    SELECT COUNT(*)
+                    FROM intenciones_pago_mensualidades
+                    WHERE parqueadero_id = ? AND estado = 'PENDIENTE_PAGO_PRESENCIAL'
+                ) AS pagos_presenciales_pendientes,
+                (
+                    SELECT COUNT(*)
+                    FROM notificaciones_mensualidades
+                    WHERE parqueadero_id = ? AND estado_envio = 'FALLIDO'
+                ) AS notificaciones_fallidas
+            FROM clientes_mensuales
+            WHERE parqueadero_id = ?
+        `, [parqueaderoId, parqueaderoId, parqueaderoId]);
+        const row = rows[0];
+        return {
+            alDia: Number(row?.al_dia ?? 0),
+            porVencer: Number(row?.por_vencer ?? 0),
+            vencidas: Number(row?.vencidas ?? 0),
+            canceladas: Number(row?.canceladas ?? 0),
+            pagosPresencialesPendientes: Number(row?.pagos_presenciales_pendientes ?? 0),
+            notificacionesFallidas: Number(row?.notificaciones_fallidas ?? 0)
+        };
+    }
+
+    async obtenerReciboPago(pagoId: number, parqueaderoId: number): Promise<IReciboMensualidad | null> {
+        const [rows] = await dbPool.execute<RowDataPacket[]>(`
+            SELECT pago.id, pago.fecha_pago, pago.monto, pago.metodo_pago, pago.canal,
+                   pago.periodo_pagado_inicio, pago.periodo_pagado_fin, pago.turno_caja_id,
+                   cliente.placa, cliente.nombre_propietario, cliente.tratamiento, cliente.telefono_whatsapp,
+                   parqueadero.nombre_comercial
+            FROM pagos_mensualidades pago
+            INNER JOIN clientes_mensuales cliente ON cliente.id = pago.cliente_id
+            INNER JOIN parqueaderos parqueadero ON parqueadero.id = pago.parqueadero_id
+            WHERE pago.id = ? AND pago.parqueadero_id = ?
+            LIMIT 1
+        `, [pagoId, parqueaderoId]);
+        const row = rows[0];
+        if (!row) return null;
+        return {
+            pagoId: row.id,
+            fechaPago: new Date(row.fecha_pago),
+            monto: Number(row.monto),
+            metodoPago: row.metodo_pago,
+            canal: row.canal,
+            periodoInicio: new Date(row.periodo_pagado_inicio),
+            periodoFin: new Date(row.periodo_pagado_fin),
+            placa: row.placa,
+            nombreCliente: row.nombre_propietario,
+            tratamiento: row.tratamiento ?? undefined,
+            telefono: row.telefono_whatsapp,
+            nombreParqueadero: row.nombre_comercial,
+            turnoCajaId: row.turno_caja_id ?? undefined
+        };
+    }
+
+    async registrarPago(datos: IRegistrarPagoMensualidadDTO): Promise<IPagoMensualidad> {
+        const connection = await dbPool.getConnection();
+        try {
+            return await this.insertarPago(connection, datos);
+        } finally {
+            connection.release();
+        }
+    }
+
+    async registrarClienteConPago(datos: ICrearClienteMensualDTO, turnoCajaId: number, monto: number, periodo: IPeriodoMensualidad): Promise<IClienteMensual> {
+        const connection = await dbPool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const queryCliente = `
+          INSERT INTO clientes_mensuales (
+                    parqueadero_id, placa, nombre_propietario, tratamiento, telefono_whatsapp,
+                documento_identidad, dia_pago_mensual, fecha_inicio, fecha_vencimiento, estado
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'AL_DIA')
+        `;
+            const [result] = await connection.execute<ResultSetHeader>(queryCliente, [
+                datos.parqueaderoId,
+                datos.placa.toUpperCase().trim(),
+                datos.nombreCliente.trim(),
+                datos.tratamiento,
+                datos.telefono ?? '',
+                datos.documentoIdentidad ?? null,
+                datos.diaPagoMensual ?? periodo.fechaVencimiento.getDate(),
+                periodo.fechaInicio,
+                periodo.fechaVencimiento
+            ]);
+
+            await this.insertarPago(connection, {
+                clienteMensualId: result.insertId,
+                parqueaderoId: datos.parqueaderoId,
+                turnoCajaId,
+                monto,
+                metodoPago: datos.metodoPagoInicial,
+                canal: 'FISICO',
+                idempotencyKey: `alta-${result.insertId}`,
+                periodoPagadoInicio: periodo.fechaInicio,
+                periodoPagadoFin: periodo.fechaVencimiento,
+                cicloRenovado: periodo.fechaVencimiento
+            });
+            await this.insertarNotificacionRenovada(connection, datos.parqueaderoId, result.insertId, periodo.fechaVencimiento);
+            await connection.commit();
+
+            const cliente = await this.buscarPorId(result.insertId, datos.parqueaderoId);
+            if (!cliente) {
+                throw new Error('No fue posible recuperar la mensualidad registrada.');
+            }
+            return cliente;
+        } catch (error: unknown) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    async renovarConPago(datos: IRegistrarPagoMensualidadDTO, periodo: IPeriodoMensualidad): Promise<IPagoMensualidad> {
+        const connection = await dbPool.getConnection();
+        try {
+            await connection.beginTransaction();
+            await connection.execute<RowDataPacket[]>(`
+                SELECT id
+                FROM clientes_mensuales
+                WHERE id = ? AND parqueadero_id = ?
+                FOR UPDATE
+            `, [datos.clienteMensualId, datos.parqueaderoId]);
+            const pagoExistente = await this.buscarPagoPorIdempotencia(connection, datos.idempotencyKey);
+            if (pagoExistente) {
+                await connection.commit();
+                return pagoExistente;
+            }
+            const pago = await this.insertarPago(connection, datos);
+            const queryActualizarCliente = `
+          UPDATE clientes_mensuales
+          SET fecha_inicio = ?, fecha_vencimiento = ?, estado = 'AL_DIA'
+          WHERE id = ? AND parqueadero_id = ?
+        `;
+            const [result] = await connection.execute<ResultSetHeader>(queryActualizarCliente, [
+                periodo.fechaInicio,
+                periodo.fechaVencimiento,
+                datos.clienteMensualId,
+                datos.parqueaderoId
+            ]);
+            if (result.affectedRows !== 1) {
+                throw new Error('No fue posible actualizar la vigencia de la mensualidad.');
+            }
+            await this.marcarIntencionPagada(connection, datos, pago.id);
+            await this.insertarNotificacionRenovada(connection, datos.parqueaderoId, datos.clienteMensualId, periodo.fechaVencimiento);
+            await connection.commit();
+            return pago;
+        } catch (error: unknown) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    private async insertarPago(connection: PoolConnection, datos: IRegistrarPagoMensualidadDTO): Promise<IPagoMensualidad> {
+        if (!datos.periodoPagadoInicio || !datos.periodoPagadoFin) {
+            throw new TypeError('El período pagado es requerido para registrar una mensualidad.');
+        }
+        const query = `
+        INSERT INTO pagos_mensualidades (
+            parqueadero_id, cliente_id, monto, metodo_pago, turno_caja_id, canal, transaccion_id,
+            idempotency_key, periodo_pagado_inicio, periodo_pagado_fin, fecha_pago
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+      `;
+        const [result] = await connection.execute<ResultSetHeader>(query, [
             datos.parqueaderoId,
             datos.clienteMensualId,
             datos.monto,
             datos.metodoPago,
-            datos.turnoCajaId
+            datos.turnoCajaId || null,
+            datos.canal,
+            datos.referenciaExterna ?? null,
+            datos.idempotencyKey,
+            datos.periodoPagadoInicio,
+            datos.periodoPagadoFin
         ]);
-
-        // Actualizamos la fecha de vencimiento del cliente mensual +1 mes
-        const queryUpdateCliente = `
-      UPDATE clientes_mensuales
-      SET fecha_vencimiento = DATE_ADD(fecha_vencimiento, INTERVAL 1 MONTH),
-          estado = 'AL_DIA'
-      WHERE id = ? AND parqueadero_id = ?
-    `;
-        await dbPool.execute(queryUpdateCliente, [datos.clienteMensualId, datos.parqueaderoId]);
-
         const queryBusqueda = `
-      SELECT id, parqueadero_id, cliente_id, monto, metodo_pago,
-             transaccion_id, turno_caja_id, fecha_pago
+          SELECT id, parqueadero_id, cliente_id, monto, metodo_pago,
+              transaccion_id, turno_caja_id, periodo_pagado_inicio, periodo_pagado_fin, fecha_pago
       FROM pagos_mensualidades
       WHERE id = ?
       LIMIT 1
     `;
-        const [rows] = await dbPool.execute<PagoRow[]>(queryBusqueda, [result.insertId]);
+        const [rows] = await connection.execute<PagoRow[]>(queryBusqueda, [result.insertId]);
+        if (!rows[0]) {
+            throw new Error('No fue posible recuperar el pago de mensualidad registrado.');
+        }
         return this.mapearPago(rows[0]!);
+    }
+
+    private async buscarPagoPorIdempotencia(connection: PoolConnection, idempotencyKey: string): Promise<IPagoMensualidad | null> {
+        const [rows] = await connection.execute<PagoRow[]>(`
+            SELECT id, parqueadero_id, cliente_id, monto, metodo_pago,
+                   transaccion_id, turno_caja_id, periodo_pagado_inicio, periodo_pagado_fin, fecha_pago
+            FROM pagos_mensualidades
+            WHERE idempotency_key = ?
+            LIMIT 1
+        `, [idempotencyKey]);
+        return rows[0] ? this.mapearPago(rows[0]) : null;
+    }
+
+    private async marcarIntencionPagada(connection: PoolConnection, datos: IRegistrarPagoMensualidadDTO, pagoId: number): Promise<void> {
+        if (datos.canal !== 'FISICO' || !datos.cicloRenovado) {
+            return;
+        }
+        await connection.execute(`
+            UPDATE intenciones_pago_mensualidades
+            SET estado = 'PAGADA', pago_mensualidad_id = ?
+            WHERE cliente_id = ? AND fecha_vencimiento_ciclo = ? AND canal = 'WHATSAPP'
+              AND estado = 'PENDIENTE_PAGO_PRESENCIAL'
+        `, [pagoId, datos.clienteMensualId, datos.cicloRenovado]);
+    }
+
+    private async insertarNotificacionRenovada(
+        connection: PoolConnection,
+        parqueaderoId: number,
+        clienteMensualId: number,
+        fechaVencimiento: Date
+    ): Promise<void> {
+        await connection.execute(`
+          INSERT IGNORE INTO notificaciones_mensualidades
+            (parqueadero_id, cliente_id, fecha_vencimiento_ciclo, tipo)
+          VALUES (?, ?, ?, 'RENOVADA')
+        `, [parqueaderoId, clienteMensualId, fechaVencimiento]);
     }
 
     async listarPagosPorCliente(clienteMensualId: number, parqueaderoId: number): Promise<IPagoMensualidad[]> {
         const query = `
-      SELECT id, parqueadero_id, cliente_id, monto, metodo_pago,
-             transaccion_id, turno_caja_id, fecha_pago
+          SELECT id, parqueadero_id, cliente_id, monto, metodo_pago,
+              transaccion_id, turno_caja_id, periodo_pagado_inicio, periodo_pagado_fin, fecha_pago
       FROM pagos_mensualidades
       WHERE cliente_id = ? AND parqueadero_id = ?
       ORDER BY fecha_pago DESC
@@ -145,9 +493,11 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
             parqueaderoId: fila.parqueadero_id,
             placa: fila.placa,
             nombreCliente: fila.nombre_propietario,
+            tratamiento: fila.tratamiento ?? undefined,
             telefono: fila.telefono_whatsapp,
             fechaInicioContrato: new Date(fila.fecha_inicio),
-            diaPagoMensual: new Date(fila.fecha_vencimiento).getDate(),
+            fechaVencimiento: new Date(fila.fecha_vencimiento),
+            diaPagoMensual: fila.dia_pago_mensual,
             activo: fila.estado !== 'VENCIDO',
             creadoEn: new Date(fila.creado_en)
         };
@@ -158,11 +508,11 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
             id: fila.id,
             clienteMensualId: fila.cliente_id,
             parqueaderoId: fila.parqueadero_id,
-            turnoCajaId: fila.turno_caja_id,
+            turnoCajaId: fila.turno_caja_id ?? undefined,
             monto: Number(fila.monto),
-            metodoPago: fila.metodo_pago === 'EFECTIVO' ? 'EFECTIVO' : 'TRANSFERENCIA',
-            periodoPagadoInicio: new Date(fila.fecha_pago),
-            periodoPagadoFin: new Date(fila.fecha_pago),
+            metodoPago: fila.metodo_pago,
+            periodoPagadoInicio: new Date(fila.periodo_pagado_inicio),
+            periodoPagadoFin: new Date(fila.periodo_pagado_fin),
             fechaPago: new Date(fila.fecha_pago)
         };
     }

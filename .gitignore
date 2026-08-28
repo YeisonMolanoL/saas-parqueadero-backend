@@ -1,2 +1,16 @@
 **/baileys_auth
 **.png
+dist/
+generar-hash.js
+generar-hash.js.map
+generar-hash.d.ts
+generar-hash.d.ts.map
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+!src/presentation/types/express.d.ts
+scripts/**/*.js
+scripts/**/*.js.map
+scripts/**/*.d.ts
+scripts/**/*.d.ts.map

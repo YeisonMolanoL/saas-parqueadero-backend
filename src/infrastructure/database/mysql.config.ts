@@ -28,3 +28,13 @@ export const checkDatabaseConnection = async (): Promise<void> => {
         process.exit(1); // Detener la ejecución si no hay base de datos
     }
 };
+
+export const verificarConexionBaseDatos = async (): Promise<boolean> => {
+    try {
+        await dbPool.query('SELECT 1');
+        return true;
+    } catch (error: unknown) {
+        console.error('Error al verificar la conexión a MySQL:', error);
+        return false;
+    }
+};

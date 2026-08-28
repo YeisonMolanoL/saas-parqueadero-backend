@@ -52,8 +52,8 @@ import type { BaileysWhatsAppService } from '../../infrastructure/services/Baile
 
 export class ProcesarRespuestaWhatsAppUseCase {
     constructor(
-        private ticketRepository: ITicketRepository,
-        private whatsappService: BaileysWhatsAppService
+        private readonly ticketRepository: ITicketRepository,
+        private readonly whatsappService: BaileysWhatsAppService
     ) { }
 
     async ejecutar(telefonoCliente: string, textoMensaje: string) {
@@ -89,6 +89,7 @@ export class ProcesarRespuestaWhatsAppUseCase {
                 tiempoParqueo,
                 urlWebTiquete
             });
+            return;
         }
 
         // 💳 SUB-OPCIONES DEL MENÚ DE PAGO (DaviPlata, WOMPI, Nequi)
@@ -141,7 +142,7 @@ export class ProcesarRespuestaWhatsAppUseCase {
         const ahora = new Date();
 
         // Si la fecha resultó inválida, retorna valor por defecto
-        if (isNaN(entrada.getTime())) {
+        if (Number.isNaN(entrada.getTime())) {
             return '0d:0h:0m:0s';
         }
 

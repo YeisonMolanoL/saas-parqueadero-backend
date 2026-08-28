@@ -2,11 +2,13 @@ import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
 import type { ITicketRepository, IRegistroEntradaDTO } from '../../domain/repositories/ITicketRepository.js';
 import type { IWhatsAppService } from '../../domain/services/IWhatsAppService.js';
+import type { IClienteMensualRepository } from '../../domain/repositories/IClienteMensualRepository.js';
 
 export class RegistrarEntradaUseCase {
     constructor(
-        private ticketRepository: ITicketRepository,
-        private whatsappService?: IWhatsAppService
+        private readonly ticketRepository: ITicketRepository,
+        private readonly clienteMensualRepository: IClienteMensualRepository,
+        private readonly whatsappService?: IWhatsAppService
     ) { }
 
     async ejecutar(data: IRegistroEntradaDTO) {
@@ -26,6 +28,11 @@ export class RegistrarEntradaUseCase {
             throw new Error(`La moto con placa ${placaLimpia} ya tiene una entrada activa registrada.`);
         }
 
+        const tieneCapacidad = await this.ticketRepository.puedeRegistrarEntrada(data.parqueaderoId);
+        if (!tieneCapacidad) {
+            throw new Error('El parqueadero alcanzó el límite de vehículos activos de su plan.');
+        }
+
         // 3. Verificar que haya tarifa configurada
         const tarifaId = await this.ticketRepository.obtenerTarifaVigente(data.parqueaderoId);
         if (!tarifaId) {
@@ -36,6 +43,7 @@ export class RegistrarEntradaUseCase {
         const codigoQrToken = uuidv4();
         const qrImageBase64 = await QRCode.toDataURL(codigoQrToken);
         const fechaEntrada = new Date();
+        const tieneAccesoMensual = await this.clienteMensualRepository.tieneAccesoMensual(placaLimpia, data.parqueaderoId);
 
         // 5. Crear el ticket en la BDD
         const ticketId = await this.ticketRepository.crearTicket({
@@ -43,6 +51,7 @@ export class RegistrarEntradaUseCase {
             codigoQr: codigoQrToken,
             placa: placaLimpia,
             telefonoWhatsapp: data.telefonoWhatsapp,
+            tipoVehiculo: tieneAccesoMensual ? 'MENSUAL' : 'OCASIONAL',
             observacionesDanos: data.observacionesDanos,
             turnoIngresoId
         });

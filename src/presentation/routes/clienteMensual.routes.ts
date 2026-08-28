@@ -1,14 +1,24 @@
 import { Router } from 'express';
 import { ClienteMensualController } from '../controllers/ClienteMensualController.js';
-import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { authenticateToken, requireParqueaderoOperativo, requireRoles } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-router.use(authenticateToken);
+router.use(authenticateToken, requireParqueaderoOperativo);
 
-router.get('/', ClienteMensualController.listar);
-router.post('/', ClienteMensualController.crear);
-router.post('/:id/pagos', ClienteMensualController.registrarPago);
-router.get('/:id/pagos', ClienteMensualController.listarPagos);
+router.get('/resumen', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.resumen);
+router.get('/intenciones', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.listarIntenciones);
+router.get('/notificaciones', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.listarNotificaciones);
+router.post('/notificaciones/:notificacionId/reintentar', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.reintentarNotificacion);
+router.get('/', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.listar);
+router.post('/', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.crear);
+router.post('/:id/pagos', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.registrarPago);
+router.get('/:id/pagos', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.listarPagos);
+router.get('/pagos/:pagoId/recibo', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.obtenerRecibo);
+router.post('/pagos/:pagoId/recibo/enviar', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.enviarRecibo);
+router.put('/:id', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.actualizar);
+router.patch('/:id/placa', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.cambiarPlaca);
+router.post('/:id/cancelar', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.cancelar);
+router.post('/:id/reactivar', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.reactivar);
 
 export default router;

@@ -3,13 +3,13 @@ import jwt from 'jsonwebtoken';
 import type { IUsuarioRepository } from '../../domain/repositories/IUsuarioRepository.js';
 
 interface LoginInput {
-    parqueaderoId: number;
+    parqueaderoId: number | null;
     documentoId: string;
     pin: string;
 }
 
 export class LoginOperarioUseCase {
-    constructor(private usuarioRepository: IUsuarioRepository) { }
+    constructor(private readonly usuarioRepository: IUsuarioRepository) { }
 
     async ejecutar(data: LoginInput) {
         const usuario = await this.usuarioRepository.buscarPorDocumento(data.parqueaderoId, data.documentoId);
@@ -49,8 +49,9 @@ export class LoginOperarioUseCase {
         const token = jwt.sign(
             {
                 usuarioId: usuario.id,
-                parqueaderoId: usuario.parqueaderoId,
-                rolId: usuario.rolId
+                parqueaderoId: usuario.parqueaderoId ?? 0,
+                rolId: usuario.rolId,
+                rolNombre: usuario.rolNombre
             },
             process.env.JWT_SECRET || 'secret_key',
             { expiresIn: '8h' }
@@ -62,7 +63,8 @@ export class LoginOperarioUseCase {
                 id: usuario.id,
                 nombre: usuario.nombre,
                 documentoId: usuario.documentoId,
-                rolId: usuario.rolId
+                rolId: usuario.rolId,
+                rolNombre: usuario.rolNombre
             }
         };
     }
