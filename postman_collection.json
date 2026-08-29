@@ -1,0 +1,603 @@
+{
+  "info": {
+    "name": "SaaS Parqueadero Backend",
+    "description": "Colección de endpoints de la API. Importa este archivo en Postman o Insomnia.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login operario",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parqueaderoId\": 1,\n  \"documentoId\": \"1234567890\",\n  \"pin\": \"1234\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login-operario", "host": ["{{baseUrl}}"], "path": ["auth", "login-operario"] }
+          }
+        },
+        {
+          "name": "Login super admin",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentoId\": \"9999999999\",\n  \"pin\": \"1234\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login-super-admin", "host": ["{{baseUrl}}"], "path": ["auth", "login-super-admin"] }
+          }
+        },
+        {
+          "name": "Perfil (ruta protegida de prueba)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/perfil", "host": ["{{baseUrl}}"], "path": ["auth", "perfil"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Entradas",
+      "item": [
+        {
+          "name": "Registrar entrada de moto",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"placa\": \"ABC123\",\n  \"telefonoWhatsapp\": \"573001234567\",\n  \"observacionesDanos\": \"Rayón en el tanque\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/entradas", "host": ["{{baseUrl}}"], "path": ["entradas"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "Consultar ticket por QR",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{baseUrl}}/tickets/qr/CODIGO_QR_AQUI", "host": ["{{baseUrl}}"], "path": ["tickets", "qr", "CODIGO_QR_AQUI"] }
+          }
+        },
+        {
+          "name": "Registrar salida",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketId\": 1,\n  \"metodoPago\": \"EFECTIVO\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tickets/salida", "host": ["{{baseUrl}}"], "path": ["tickets", "salida"] }
+          }
+        },
+        {
+          "name": "Anular ticket",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketId\": 1,\n  \"motivo\": \"Error al registrar la entrada\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tickets/anular", "host": ["{{baseUrl}}"], "path": ["tickets", "anular"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Turnos",
+      "item": [
+        {
+          "name": "Consultar estado del turno actual",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/turnos/actual", "host": ["{{baseUrl}}"], "path": ["turnos", "actual"] }
+          }
+        },
+        {
+          "name": "Abrir turno",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"montoInicialEfectivo\": 50000\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/turnos/abrir", "host": ["{{baseUrl}}"], "path": ["turnos", "abrir"] }
+          }
+        },
+        {
+          "name": "Cerrar turno",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"turnoId\": 1,\n  \"efectivoReportadoCierre\": 150000,\n  \"observacionesCierre\": \"Cierre sin novedades\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/turnos/cerrar", "host": ["{{baseUrl}}"], "path": ["turnos", "cerrar"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Egresos",
+      "item": [
+        {
+          "name": "Registrar egreso",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": 20000,\n  \"motivo\": \"Compra de tiquetera\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/egresos", "host": ["{{baseUrl}}"], "path": ["egresos"] }
+          }
+        },
+        {
+          "name": "Listar egresos por turno",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/egresos/turno/1", "host": ["{{baseUrl}}"], "path": ["egresos", "turno", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tarifas",
+      "item": [
+        {
+          "name": "Obtener tarifa activa",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/tarifas/activa", "host": ["{{baseUrl}}"], "path": ["tarifas", "activa"] }
+          }
+        },
+        {
+          "name": "Crear tarifa",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Tarifa estándar\",\n  \"precioBaseHora\": 2000,\n  \"minutosGracia\": 10,\n  \"horaInicioNocturna\": \"20:00\",\n  \"horaFinNocturna\": \"06:00\",\n  \"tipoRecargoNocturno\": \"PORCENTAJE\",\n  \"valorRecargoNocturno\": 20,\n  \"precioMensualidad\": 80000\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tarifas", "host": ["{{baseUrl}}"], "path": ["tarifas"] }
+          }
+        },
+        {
+          "name": "Actualizar tarifa",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Tarifa estándar actualizada\",\n  \"precioBaseHora\": 2200,\n  \"precioMensualidad\": 85000\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tarifas/1", "host": ["{{baseUrl}}"], "path": ["tarifas", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clientes mensuales",
+      "item": [
+        {
+          "name": "Resumen administrativo",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/resumen", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "resumen"] }
+          }
+        },
+        {
+          "name": "Listar intenciones de pago",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/clientes-mensuales/intenciones?pagina=1&limite=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes-mensuales", "intenciones"],
+              "query": [ { "key": "pagina", "value": "1" }, { "key": "limite", "value": "20" } ]
+            }
+          }
+        },
+        {
+          "name": "Listar notificaciones",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/clientes-mensuales/notificaciones?pagina=1&limite=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes-mensuales", "notificaciones"],
+              "query": [ { "key": "pagina", "value": "1" }, { "key": "limite", "value": "20" } ]
+            }
+          }
+        },
+        {
+          "name": "Reintentar notificación",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/notificaciones/1/reintentar", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "notificaciones", "1", "reintentar"] }
+          }
+        },
+        {
+          "name": "Listar clientes mensuales",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/clientes-mensuales?pagina=1&limite=20&busqueda=ABC123&estado=AL_DIA",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes-mensuales"],
+              "query": [
+                { "key": "pagina", "value": "1" },
+                { "key": "limite", "value": "20" },
+                { "key": "busqueda", "value": "ABC123" },
+                { "key": "estado", "value": "AL_DIA" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear cliente mensual",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"placa\": \"XYZ987\",\n  \"nombreCliente\": \"Juan Pérez\",\n  \"tratamiento\": \"SENOR\",\n  \"telefono\": \"573001234567\",\n  \"documentoIdentidad\": \"1234567890\",\n  \"fechaInicioContrato\": \"2026-08-01\",\n  \"diaPagoMensual\": 5,\n  \"metodoPagoInicial\": \"EFECTIVO\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales"] }
+          }
+        },
+        {
+          "name": "Registrar pago de mensualidad",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"EFECTIVO\",\n  \"observaciones\": \"Pago puntual\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/1/pagos", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "1", "pagos"] }
+          }
+        },
+        {
+          "name": "Listar pagos de un cliente mensual",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/1/pagos", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "1", "pagos"] }
+          }
+        },
+        {
+          "name": "Obtener recibo de pago",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/pagos/1/recibo", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "pagos", "1", "recibo"] }
+          }
+        },
+        {
+          "name": "Enviar recibo por WhatsApp",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/pagos/1/recibo/enviar", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "pagos", "1", "recibo", "enviar"] }
+          }
+        },
+        {
+          "name": "Actualizar cliente mensual",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreCliente\": \"Juan Pérez Actualizado\",\n  \"tratamiento\": \"SENOR\",\n  \"telefono\": \"573007654321\",\n  \"documentoIdentidad\": \"1234567890\",\n  \"diaPagoMensual\": 10\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/1", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "1"] }
+          }
+        },
+        {
+          "name": "Cambiar placa",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"placaNueva\": \"NEW001\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/1/placa", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "1", "placa"] }
+          }
+        },
+        {
+          "name": "Cancelar mensualidad",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Cliente ya no usa el servicio\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/1/cancelar", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "1", "cancelar"] }
+          }
+        },
+        {
+          "name": "Reactivar mensualidad",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Cliente retoma el servicio\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/clientes-mensuales/1/reactivar", "host": ["{{baseUrl}}"], "path": ["clientes-mensuales", "1", "reactivar"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Configuración de mensualidades",
+      "item": [
+        {
+          "name": "Obtener configuración",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/configuracion-mensualidades", "host": ["{{baseUrl}}"], "path": ["configuracion-mensualidades"] }
+          }
+        },
+        {
+          "name": "Actualizar configuración",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"diasGracia\": 3,\n  \"diasAvisoPrevio\": 5,\n  \"diasAvisoVencido\": 2,\n  \"horaEnvioWhatsapp\": \"09:00\",\n  \"horasPlazoPagoPresencial\": 24,\n  \"whatsappHabilitado\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/configuracion-mensualidades", "host": ["{{baseUrl}}"], "path": ["configuracion-mensualidades"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Días no hábiles",
+      "item": [
+        {
+          "name": "Listar días no hábiles",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/dias-no-habiles", "host": ["{{baseUrl}}"], "path": ["dias-no-habiles"] }
+          }
+        },
+        {
+          "name": "Agregar día no hábil",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"2026-12-25\",\n  \"motivo\": \"Navidad\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/dias-no-habiles", "host": ["{{baseUrl}}"], "path": ["dias-no-habiles"] }
+          }
+        },
+        {
+          "name": "Eliminar día no hábil",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/dias-no-habiles/1", "host": ["{{baseUrl}}"], "path": ["dias-no-habiles", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operarios",
+      "item": [
+        {
+          "name": "Listar operarios",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/operarios", "host": ["{{baseUrl}}"], "path": ["operarios"] }
+          }
+        },
+        {
+          "name": "Registrar operario",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"María López\",\n  \"documentoId\": \"9876543210\",\n  \"telefono\": \"573009876543\",\n  \"email\": \"maria@example.com\",\n  \"pin\": \"5678\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/operarios", "host": ["{{baseUrl}}"], "path": ["operarios"] }
+          }
+        },
+        {
+          "name": "Activar operario",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Reincorporación\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/operarios/1/activar", "host": ["{{baseUrl}}"], "path": ["operarios", "1", "activar"] }
+          }
+        },
+        {
+          "name": "Desactivar operario",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Fin de contrato\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/operarios/1/desactivar", "host": ["{{baseUrl}}"], "path": ["operarios", "1", "desactivar"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reportes",
+      "item": [
+        {
+          "name": "Reporte de recaudo",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reportes/recaudo?fechaInicio=2026-08-01&fechaFin=2026-08-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["reportes", "recaudo"],
+              "query": [ { "key": "fechaInicio", "value": "2026-08-01" }, { "key": "fechaFin", "value": "2026-08-31" } ]
+            }
+          }
+        },
+        {
+          "name": "Auditoría",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reportes/auditoria?pagina=1&limite=20&tipoAccion=CANCELACION",
+              "host": ["{{baseUrl}}"],
+              "path": ["reportes", "auditoria"],
+              "query": [
+                { "key": "pagina", "value": "1" },
+                { "key": "limite", "value": "20" },
+                { "key": "tipoAccion", "value": "CANCELACION" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Super Admin",
+      "item": [
+        {
+          "name": "Listar parqueaderos",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/parqueaderos", "host": ["{{baseUrl}}"], "path": ["admin", "parqueaderos"] }
+          }
+        },
+        {
+          "name": "Registrar parqueadero",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreComercial\": \"Parqueadero Central\",\n  \"nitDocumento\": \"900123456-7\",\n  \"ciudad\": \"Bogotá\",\n  \"direccion\": \"Calle 10 # 20-30\",\n  \"telefonoContacto\": \"6017654321\",\n  \"planId\": 1,\n  \"nombreAdministrador\": \"Carlos Ramírez\",\n  \"documentoAdministrador\": \"1122334455\",\n  \"telefonoAdministrador\": \"573001112233\",\n  \"emailAdministrador\": \"carlos@example.com\",\n  \"pinAdministrador\": \"1234\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/parqueaderos", "host": ["{{baseUrl}}"], "path": ["admin", "parqueaderos"] }
+          }
+        },
+        {
+          "name": "Activar parqueadero",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Pago confirmado\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/parqueaderos/1/activar", "host": ["{{baseUrl}}"], "path": ["admin", "parqueaderos", "1", "activar"] }
+          }
+        },
+        {
+          "name": "Suspender parqueadero",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Pago vencido\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/parqueaderos/1/suspender", "host": ["{{baseUrl}}"], "path": ["admin", "parqueaderos", "1", "suspender"] }
+          }
+        },
+        {
+          "name": "Renovar suscripción",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planId\": 1,\n  \"metodoPago\": \"WOMPI_TARJETA\",\n  \"transaccionId\": \"TRX-123456\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/parqueaderos/1/suscripciones", "host": ["{{baseUrl}}"], "path": ["admin", "parqueaderos", "1", "suscripciones"] }
+          }
+        },
+        {
+          "name": "Listar planes SaaS",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/planes", "host": ["{{baseUrl}}"], "path": ["admin", "planes"] }
+          }
+        },
+        {
+          "name": "Crear plan SaaS",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Plan Básico\",\n  \"precioMensual\": 50000,\n  \"limiteMotos\": 100\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/planes", "host": ["{{baseUrl}}"], "path": ["admin", "planes"] }
+          }
+        },
+        {
+          "name": "Actualizar plan SaaS",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Plan Básico Plus\",\n  \"precioMensual\": 60000,\n  \"limiteMotos\": 150\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/planes/1", "host": ["{{baseUrl}}"], "path": ["admin", "planes", "1"] }
+          }
+        }
+      ]
+    }
+  ]
+}

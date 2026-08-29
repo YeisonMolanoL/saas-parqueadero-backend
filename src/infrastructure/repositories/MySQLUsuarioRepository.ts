@@ -66,23 +66,23 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         // Consulta usando el índice directo `uk_parqueadero_documento`
         const query = `
       SELECT 
-        id, 
-        parqueadero_id AS parqueaderoId,
-        rol_id AS rolId,
+        usuarios.id, 
+        usuarios.parqueadero_id AS parqueaderoId,
+        usuarios.rol_id AS rolId,
         rol.nombre AS rolNombre,
-        nombre,
-        documento_id AS documentoId,
-        telefono,
-        email,
-        password_hash AS passwordHash,
-        pin_hash AS pinHash,
-        intentos_fallidos_pin AS intentosFallidosPin,
-        bloqueado_hasta AS bloqueadoHasta,
-        estado
+        usuarios.nombre,
+        usuarios.documento_id AS documentoId,
+        usuarios.telefono,
+        usuarios.email,
+        usuarios.password_hash AS passwordHash,
+        usuarios.pin_hash AS pinHash,
+        usuarios.intentos_fallidos_pin AS intentosFallidosPin,
+        usuarios.bloqueado_hasta AS bloqueadoHasta,
+        usuarios.estado
       FROM usuarios
       INNER JOIN roles rol ON rol.id = usuarios.rol_id
-      WHERE (parqueadero_id = ? OR (? IS NULL AND parqueadero_id IS NULL))
-        AND documento_id = ?
+      WHERE (usuarios.parqueadero_id = ? OR (? IS NULL AND usuarios.parqueadero_id IS NULL))
+        AND usuarios.documento_id = ?
       LIMIT 1
     `;
 
