@@ -93,6 +93,22 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         return rows[0] as IUsuario;
     }
 
+    async buscarCuentasActivasPorDocumento(documentoId: string): Promise<IUsuario[]> {
+      const [rows] = await dbPool.execute<RowDataPacket[]>(`
+        SELECT usuarios.id, usuarios.parqueadero_id AS parqueaderoId, usuarios.rol_id AS rolId,
+             rol.nombre AS rolNombre, usuarios.nombre, usuarios.documento_id AS documentoId,
+             usuarios.telefono, usuarios.email, usuarios.password_hash AS passwordHash,
+             usuarios.pin_hash AS pinHash, usuarios.intentos_fallidos_pin AS intentosFallidosPin,
+             usuarios.bloqueado_hasta AS bloqueadoHasta, usuarios.estado,
+             parqueadero.nombre_comercial AS nombreParqueadero
+        FROM usuarios
+        INNER JOIN roles rol ON rol.id = usuarios.rol_id
+        INNER JOIN parqueaderos parqueadero ON parqueadero.id = usuarios.parqueadero_id
+        WHERE usuarios.documento_id = ?
+      `, [documentoId]);
+      return rows as IUsuario[];
+    }
+
     async buscarSuperAdminPorDocumento(documentoId: string): Promise<IUsuario | null> {
       const [rows] = await dbPool.execute<RowDataPacket[]>(`
         SELECT usuario.id, usuario.parqueadero_id AS parqueaderoId, usuario.rol_id AS rolId,

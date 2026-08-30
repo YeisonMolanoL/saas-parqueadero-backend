@@ -12,6 +12,7 @@ export interface IUsuario {
     intentosFallidosPin: number;
     bloqueadoHasta?: Date | null;
     estado: 'ACTIVO' | 'INACTIVO' | 'BLOQUEADO';
+    nombreParqueadero?: string | null; // Solo se llena al resolver login sin parqueaderoId explícito
 }
 
 export interface IRegistrarOperarioDTO {
@@ -25,6 +26,7 @@ export interface IRegistrarOperarioDTO {
 export interface IUsuarioRepository {
     buscarPorDocumento(parqueaderoId: number | null, documentoId: string): Promise<IUsuario | null>;
     buscarSuperAdminPorDocumento(documentoId: string): Promise<IUsuario | null>;
+    buscarCuentasActivasPorDocumento(documentoId: string): Promise<IUsuario[]>;
     buscarPorId(id: number): Promise<IUsuario | null>;
     registrarIntentoFallido(usuarioId: number, nuevosIntentos: number): Promise<void>;
     bloquearUsuario(usuarioId: number): Promise<void>;

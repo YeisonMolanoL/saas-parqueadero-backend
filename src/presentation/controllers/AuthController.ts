@@ -11,17 +11,22 @@ export class AuthController {
         try {
             const { parqueaderoId, documentoId, pin } = req.body;
 
-            // Validación simple de entrada
-            if (!parqueaderoId || !documentoId || !pin) {
+            // Validación simple de entrada (parqueaderoId es opcional: se resuelve por documentoId + pin si no se envía)
+            if (!documentoId || !pin) {
                 res.status(400).json({ error: 'Faltan campos obligatorios' });
                 return;
             }
 
-            const resultado = await loginOperarioUseCase.ejecutar({
-                parqueaderoId: Number(parqueaderoId),
-                documentoId: String(documentoId),
-                pin: String(pin)
-            });
+            const resultado = parqueaderoId
+                ? await loginOperarioUseCase.ejecutar({
+                    parqueaderoId: Number(parqueaderoId),
+                    documentoId: String(documentoId),
+                    pin: String(pin)
+                })
+                : await loginOperarioUseCase.ejecutarSinParqueadero({
+                    documentoId: String(documentoId),
+                    pin: String(pin)
+                });
 
             res.status(200).json(resultado);
         } catch (error: any) {
