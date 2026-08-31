@@ -71,7 +71,7 @@ export class TurnoController {
     static async consultarEstadoActual(req: Request, res: Response): Promise<void> {
         try {
             const { parqueaderoId, usuarioId } = req.user!;
-            const resultado = await consultarEstadoTurnoUseCase.ejecutar(parqueaderoId, usuarioId);
+            const resultado = await consultarEstadoTurnoUseCase.ejecutar(usuarioId, parqueaderoId);
             res.status(200).json({ data: resultado });
         } catch (error: any) {
             res.status(400).json({ error: error.message });

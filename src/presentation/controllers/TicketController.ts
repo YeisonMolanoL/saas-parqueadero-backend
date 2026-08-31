@@ -28,6 +28,22 @@ export class TicketController {
         }
     }
 
+    // GET /api/v1/tickets/placa/:placa (Protegido por JWT, buscado dentro del parqueadero del cajero)
+    static async consultarPorPlaca(req: Request, res: Response): Promise<void> {
+        try {
+            const { placa } = req.params;
+            const { parqueaderoId } = req.user!;
+            if (!placa || typeof placa !== 'string') {
+                res.status(400).json({ error: 'La placa debe ser una cadena válida.' });
+                return;
+            }
+            const resultado = await consultarTicketUseCase.ejecutarPorPlaca(parqueaderoId, placa);
+            res.status(200).json({ data: resultado });
+        } catch (error: any) {
+            res.status(404).json({ error: error.message });
+        }
+    }
+
     // POST /api/v1/tickets/salida (Protegido por JWT)
     static async registrarSalida(req: Request, res: Response): Promise<void> {
         try {

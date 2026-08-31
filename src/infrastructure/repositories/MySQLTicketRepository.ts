@@ -46,7 +46,7 @@ export class MySQLTicketRepository implements ITicketRepository {
 
   async buscarTicketActivoPorPlaca(parqueaderoId: number, placa: string): Promise<ITicket | null> {
     const query = `
-      SELECT id, parqueadero_id AS parqueaderoId, BIN_TO_UUID(codigo_qr) AS codigoQr, 
+      SELECT id, parqueadero_id AS parqueaderoId, codigo_qr AS codigoQr, 
              placa, fecha_entrada AS fechaEntrada, estado, turno_ingreso_id AS turnoIngresoId
       FROM tickets
       WHERE parqueadero_id = ? AND placa = ? AND estado = 'ACTIVO'
@@ -70,7 +70,7 @@ export class MySQLTicketRepository implements ITicketRepository {
   async buscarTicketPorQr(codigoQr: string): Promise<ITicketDetalle | null> {
     const query = `
       SELECT 
-        t.id, t.parqueadero_id, BIN_TO_UUID(t.codigo_qr) AS codigoQr, t.placa, 
+        t.id, t.parqueadero_id, t.codigo_qr AS codigoQr, t.placa, 
         t.telefono_whatsapp, t.tipo_vehiculo, t.observaciones_danos, t.fecha_entrada, 
         t.fecha_salida, t.subtotal_base, t.recargo_nocturno_aplicado, t.aplico_nocturno, 
         t.total_pagado, t.metodo_pago, t.estado, t.turno_ingreso_id, t.turno_salida_id,
@@ -78,7 +78,7 @@ export class MySQLTicketRepository implements ITicketRepository {
         tf.hora_fin_nocturna, tf.tipo_recargo_nocturno, tf.valor_recargo_nocturno
       FROM tickets t
       INNER JOIN tarifas tf ON t.parqueadero_id = tf.parqueadero_id AND tf.activo = TRUE
-      WHERE t.codigo_qr = UUID_TO_BIN(?)
+      WHERE t.codigo_qr = ?
       LIMIT 1
     `;
     const [rows] = await dbPool.execute<TicketConsultaRow[]>(query, [codigoQr]);
@@ -91,7 +91,7 @@ export class MySQLTicketRepository implements ITicketRepository {
   async buscarTicketPorId(ticketId: number, parqueaderoId: number): Promise<ITicketDetalle | null> {
     const query = `
       SELECT 
-        t.id, t.parqueadero_id, BIN_TO_UUID(t.codigo_qr) AS codigoQr, t.placa, 
+        t.id, t.parqueadero_id, t.codigo_qr AS codigoQr, t.placa, 
         t.telefono_whatsapp, t.tipo_vehiculo, t.observaciones_danos, t.fecha_entrada, 
         t.fecha_salida, t.subtotal_base, t.recargo_nocturno_aplicado, t.aplico_nocturno, 
         t.total_pagado, t.metodo_pago, t.estado, t.turno_ingreso_id, t.turno_salida_id,
@@ -126,7 +126,7 @@ export class MySQLTicketRepository implements ITicketRepository {
         parqueadero_id, codigo_qr, placa, telefono_whatsapp, 
         tipo_vehiculo, observaciones_danos, fecha_entrada, estado, turno_ingreso_id
       )
-      VALUES (?, UUID_TO_BIN(?), ?, ?, ?, ?, NOW(), 'ACTIVO', ?)
+      VALUES (?, ?, ?, ?, ?, ?, NOW(), 'ACTIVO', ?)
     `;
 
     const values = [
@@ -248,7 +248,7 @@ export class MySQLTicketRepository implements ITicketRepository {
           SELECT 
             id,
             parqueadero_id AS parqueaderoId,
-            BIN_TO_UUID(codigo_qr) AS codigoQr,
+            codigo_qr AS codigoQr,
             placa,
             telefono_whatsapp AS telefonoWhatsapp,
             tipo_vehiculo AS tipoVehiculo,
