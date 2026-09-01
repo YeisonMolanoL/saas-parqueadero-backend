@@ -5,12 +5,14 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
+import QRCodeBase64 from 'qrcode';
 import type { IWhatsAppService, DTOBienvenidaBaileys, DTOEnvioQRBaileys, DTONotificacionMensualidad, DTORespuestaRenovacionMensualidad, DTOReciboMensualidad } from '../../domain/services/IWhatsAppService.js';
 
 export class BaileysWhatsAppService implements IWhatsAppService {
     private sock: any;
     private conectado = false;
     private oyenteMensajes?: (telefono: string, texto: string) => Promise<void>;
+    private qrActual: string | null = null;
 
     //  Mapa de sesión: vincula el remoteJid (@lid o @s.whatsapp.net) con el teléfono real de MySQL
     private mapaLidATelefono = new Map<string, string>();
@@ -30,12 +32,13 @@ export class BaileysWhatsAppService implements IWhatsAppService {
 
         this.sock.ev.on('creds.update', saveCreds);
 
-        this.sock.ev.on('connection.update', (update: any) => {
+        this.sock.ev.on('connection.update', async (update: any) => {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
                 console.log('\n📲 ESCANEA ESTE CÓDIGO QR CON WHATSAPP:\n');
                 qrcode.generate(qr, { small: true });
+                this.qrActual = await QRCodeBase64.toDataURL(qr);
             }
 
             if (connection === 'close') {
@@ -46,6 +49,7 @@ export class BaileysWhatsAppService implements IWhatsAppService {
                 if (shouldReconnect) this.inicializar();
             } else if (connection === 'open') {
                 this.conectado = true;
+                this.qrActual = null;
                 console.log('🟢 WhatsApp conectado exitosamente mediante Baileys.');
             }
         });
@@ -357,5 +361,9 @@ export class BaileysWhatsAppService implements IWhatsAppService {
         return telefonoLimpio.startsWith('57') && telefonoLimpio.length === 12
             ? telefonoLimpio.substring(2)
             : telefonoLimpio;
+    }
+
+    obtenerQr(): string | null {
+        return this.qrActual;
     }
 }

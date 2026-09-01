@@ -116,6 +116,7 @@ import operarioRoutes from './presentation/routes/operario.routes.js';
 import reporteRoutes from './presentation/routes/reporte.routes.js';
 import calendarioHabilRoutes from './presentation/routes/calendarioHabil.routes.js';
 
+import whatsappRoutes from './presentation/routes/whatsapp.routes.js';
 dotenv.config();
 
 const app: Application = express();
@@ -149,6 +150,7 @@ app.use('/api/v1/operarios', operarioRoutes);
 app.use('/api/v1/reportes', reporteRoutes);
 app.use('/api/v1/dias-no-habiles', calendarioHabilRoutes);
 
+app.use('/api/v1/whatsapp', whatsappRoutes);
 // Endpoint HealthCheck
 app.get('/api/v1/health', async (_req: Request, res: Response): Promise<void> => {
     const baseDatosConectada = await verificarConexionBaseDatos();
