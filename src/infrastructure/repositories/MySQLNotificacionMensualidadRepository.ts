@@ -105,6 +105,7 @@ export class MySQLNotificacionMensualidadRepository implements INotificacionMens
             WHERE notificacion.estado_envio IN ('PENDIENTE', 'FALLIDO')
               AND notificacion.intentos < 5
                             AND cliente.estado != 'CANCELADA'
+                                                        AND notificacion.fecha_vencimiento_ciclo = cliente.fecha_vencimiento
                             AND COALESCE(configuracion.whatsapp_habilitado, TRUE) = TRUE
                             AND CURTIME() >= COALESCE(configuracion.hora_envio_whatsapp, '09:00:00')
             ORDER BY notificacion.creado_en ASC

@@ -55,6 +55,18 @@ export interface DTOReciboMensualidad {
     pagoId: number;
 }
 
+export interface DTOBienvenidaMensualidad {
+    telefono: string;
+    nombreCliente: string;
+    tratamiento?: TratamientoCliente | undefined;
+    placa: string;
+    nombreParqueadero: string;
+    fechaPago: Date;
+    monto: number;
+    diaPagoMensual: number;
+    fechaVencimiento: Date;
+}
+
 export interface IWhatsAppService {
     /**
      * Inicia la conexión WebSocket con WhatsApp (Genera QR en consola si no hay sesión)
@@ -92,4 +104,5 @@ export interface IWhatsAppService {
     enviarConfirmacionCancelacionRenovacion(telefono: string, placa: string): Promise<boolean>;
     enviarInstruccionPagoPresencial(datos: DTORespuestaRenovacionMensualidad): Promise<boolean>;
     enviarReciboMensualidad(datos: DTOReciboMensualidad): Promise<boolean>;
+    enviarBienvenidaMensualidad(datos: DTOBienvenidaMensualidad): Promise<boolean>;
 }

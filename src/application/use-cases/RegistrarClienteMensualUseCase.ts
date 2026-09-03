@@ -2,13 +2,15 @@ import type { IClienteMensualRepository } from '../../domain/repositories/IClien
 import type { ITurnoRepository } from '../../domain/repositories/ITurnoRepository.js';
 import type { ITarifaRepository } from '../../domain/repositories/ITarifaRepository.js';
 import type { ICrearClienteMensualDTO } from '../../domain/types/clienteMensual.types.js';
+import type { IWhatsAppService } from '../../domain/services/IWhatsAppService.js';
 import { calcularPrimerPeriodoMensualidad } from '../../domain/services/CalcularPeriodoMensualidad.js';
 
 export class RegistrarClienteMensualUseCase {
     constructor(
         private readonly clienteRepository: IClienteMensualRepository,
         private readonly turnoRepository: ITurnoRepository,
-        private readonly tarifaRepository: ITarifaRepository
+        private readonly tarifaRepository: ITarifaRepository,
+        private readonly whatsappService: IWhatsAppService
     ) { }
 
     async ejecutar(usuarioId: number, dto: ICrearClienteMensualDTO) {
@@ -17,6 +19,10 @@ export class RegistrarClienteMensualUseCase {
         }
         if (!['SR', 'SRA', 'NEUTRO'].includes(dto.tratamiento)) {
             throw new TypeError('El tratamiento debe ser SR, SRA o NEUTRO.');
+        }
+        const metodosPagoValidos = ['EFECTIVO', 'WOMPI_PSE', 'WOMPI_TARJETA', 'NEQUI', 'DAVIPLATA', 'OTRO'];
+        if (!metodosPagoValidos.includes(dto.metodoPagoInicial)) {
+            throw new TypeError('El método de pago inicial no es válido.');
         }
 
         const clienteExistente = await this.clienteRepository.buscarPorPlaca(dto.placa, dto.parqueaderoId);
@@ -39,7 +45,32 @@ export class RegistrarClienteMensualUseCase {
         }
         const diaPago = dto.diaPagoMensual ?? fechaInicio.getDate();
         const periodo = calcularPrimerPeriodoMensualidad(fechaInicio, diaPago);
+        const nombreParqueadero = await this.clienteRepository.obtenerNombreParqueadero(dto.parqueaderoId);
 
-        return this.clienteRepository.registrarClienteConPago({ ...dto, diaPagoMensual: diaPago }, turno.id, tarifa.precioMensualidad, periodo);
+        const cliente = await this.clienteRepository.registrarClienteConPago(
+            { ...dto, diaPagoMensual: diaPago },
+            usuarioId,
+            turno.id,
+            tarifa.precioMensualidad,
+            periodo
+        );
+
+        try {
+            await this.whatsappService.enviarBienvenidaMensualidad({
+                telefono: cliente.telefono ?? dto.telefono,
+                nombreCliente: cliente.nombreCliente,
+                tratamiento: cliente.tratamiento,
+                placa: cliente.placa,
+                nombreParqueadero,
+                fechaPago: new Date(),
+                monto: tarifa.precioMensualidad,
+                diaPagoMensual: diaPago,
+                fechaVencimiento: periodo.fechaVencimiento
+            });
+        } catch (error: unknown) {
+            console.error('No fue posible enviar la bienvenida de mensualidad.', error);
+        }
+
+        return cliente;
     }
 }

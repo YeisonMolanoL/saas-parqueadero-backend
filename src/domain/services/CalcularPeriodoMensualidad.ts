@@ -5,11 +5,11 @@ export interface IPeriodoMensualidad {
 
 export const calcularPrimerPeriodoMensualidad = (fechaInicio: Date, diaPagoMensual: number): IPeriodoMensualidad => {
     validarDiaPago(diaPagoMensual);
-    let fechaVencimiento = construirFechaDePago(fechaInicio.getFullYear(), fechaInicio.getMonth(), diaPagoMensual);
-
-    if (fechaVencimiento <= normalizarFecha(fechaInicio)) {
-        fechaVencimiento = construirFechaDePago(fechaInicio.getFullYear(), fechaInicio.getMonth() + 1, diaPagoMensual);
-    }
+    const fechaVencimiento = construirFechaDePago(
+        fechaInicio.getFullYear(),
+        fechaInicio.getMonth() + 1,
+        diaPagoMensual
+    );
 
     return { fechaInicio: normalizarFecha(fechaInicio), fechaVencimiento };
 };

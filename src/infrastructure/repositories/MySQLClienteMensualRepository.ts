@@ -73,6 +73,20 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
         return this.mapearCliente(rows[0]);
     }
 
+    async obtenerNombreParqueadero(parqueaderoId: number): Promise<string> {
+        const [rows] = await dbPool.execute<RowDataPacket[]>(`
+            SELECT nombre_comercial
+            FROM parqueaderos
+            WHERE id = ?
+            LIMIT 1
+        `, [parqueaderoId]);
+        const nombre = rows[0]?.nombre_comercial;
+        if (typeof nombre !== 'string' || !nombre.trim()) {
+            throw new Error('No fue posible obtener el nombre del parqueadero.');
+        }
+        return nombre;
+    }
+
     async tieneAccesoMensual(placa: string, parqueaderoId: number): Promise<boolean> {
         const [rows] = await dbPool.execute<RowDataPacket[]>(`
             SELECT id
@@ -293,18 +307,19 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
         }
     }
 
-    async registrarClienteConPago(datos: ICrearClienteMensualDTO, turnoCajaId: number, monto: number, periodo: IPeriodoMensualidad): Promise<IClienteMensual> {
+    async registrarClienteConPago(datos: ICrearClienteMensualDTO, usuarioId: number, turnoCajaId: number, monto: number, periodo: IPeriodoMensualidad): Promise<IClienteMensual> {
         const connection = await dbPool.getConnection();
         try {
             await connection.beginTransaction();
             const queryCliente = `
           INSERT INTO clientes_mensuales (
-                    parqueadero_id, placa, nombre_propietario, tratamiento, telefono_whatsapp,
+                    parqueadero_id, usuario_id, placa, nombre_propietario, tratamiento, telefono_whatsapp,
                 documento_identidad, dia_pago_mensual, fecha_inicio, fecha_vencimiento, estado
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'AL_DIA')
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AL_DIA')
         `;
             const [result] = await connection.execute<ResultSetHeader>(queryCliente, [
                 datos.parqueaderoId,
+                usuarioId,
                 datos.placa.toUpperCase().trim(),
                 datos.nombreCliente.trim(),
                 datos.tratamiento,
@@ -327,7 +342,6 @@ export class MySQLClienteMensualRepository implements IClienteMensualRepository 
                 periodoPagadoFin: periodo.fechaVencimiento,
                 cicloRenovado: periodo.fechaVencimiento
             });
-            await this.insertarNotificacionRenovada(connection, datos.parqueaderoId, result.insertId, periodo.fechaVencimiento);
             await connection.commit();
 
             const cliente = await this.buscarPorId(result.insertId, datos.parqueaderoId);

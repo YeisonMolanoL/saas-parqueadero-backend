@@ -17,7 +17,7 @@ const turnoRepository = new MySQLTurnoRepository();
 const tarifaRepository = new MySQLTarifaRepository();
 const ticketRepository = new MySQLTicketRepository();
 
-const registrarClienteUseCase = new RegistrarClienteMensualUseCase(clienteRepository, turnoRepository, tarifaRepository);
+const registrarClienteUseCase = new RegistrarClienteMensualUseCase(clienteRepository, turnoRepository, tarifaRepository, whatsappService);
 const registrarPagoUseCase = new RegistrarPagoMensualidadUseCase(clienteRepository, turnoRepository, tarifaRepository);
 const gestionarClienteUseCase = new GestionarClienteMensualUseCase(clienteRepository, ticketRepository);
 const trazabilidadUseCase = new ConsultarTrazabilidadMensualidadUseCase(new MySQLTrazabilidadMensualidadRepository());
@@ -88,7 +88,7 @@ export class ClienteMensualController {
     static async crear(req: Request, res: Response): Promise<void> {
         try {
             const { parqueaderoId, usuarioId } = req.user!;
-            const { placa, nombreCliente, tratamiento, telefono, documentoIdentidad, fechaInicioContrato, diaPagoMensual } = req.body;
+            const { placa, nombreCliente, tratamiento, telefono, documentoIdentidad, fechaInicioContrato, diaPagoMensual, metodoPagoInicial } = req.body;
 
             const cliente = await registrarClienteUseCase.ejecutar(usuarioId, {
                 parqueaderoId,
@@ -99,7 +99,7 @@ export class ClienteMensualController {
                 documentoIdentidad,
                 fechaInicioContrato,
                 diaPagoMensual: diaPagoMensual ? Number(diaPagoMensual) : undefined,
-                metodoPagoInicial: req.body.metodoPagoInicial ?? 'EFECTIVO'
+                metodoPagoInicial
             });
 
             res.status(201).json({ mensaje: 'Cliente mensual registrado exitosamente', data: cliente });

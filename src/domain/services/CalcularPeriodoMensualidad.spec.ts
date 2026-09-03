@@ -9,6 +9,12 @@ test('calcula el primer vencimiento en el día de pago pactado', () => {
     assert.deepEqual(periodo.fechaVencimiento, new Date(2026, 8, 5));
 });
 
+test('calcula el primer vencimiento en el mes siguiente aunque el día pactado aún no haya llegado', () => {
+    const periodo = calcularPrimerPeriodoMensualidad(new Date(2026, 8, 3), 6);
+
+    assert.deepEqual(periodo.fechaVencimiento, new Date(2026, 9, 6));
+});
+
 test('ajusta el día 30 al último día de febrero no bisiesto', () => {
     const periodo = calcularPrimerPeriodoMensualidad(new Date(2026, 0, 30), 30);
 

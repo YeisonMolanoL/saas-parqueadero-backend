@@ -6,7 +6,7 @@ import makeWASocket, {
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import QRCodeBase64 from 'qrcode';
-import type { IWhatsAppService, DTOBienvenidaBaileys, DTOEnvioQRBaileys, DTONotificacionMensualidad, DTORespuestaRenovacionMensualidad, DTOReciboMensualidad } from '../../domain/services/IWhatsAppService.js';
+import type { IWhatsAppService, DTOBienvenidaBaileys, DTOEnvioQRBaileys, DTONotificacionMensualidad, DTORespuestaRenovacionMensualidad, DTOReciboMensualidad, DTOBienvenidaMensualidad } from '../../domain/services/IWhatsAppService.js';
 
 export class BaileysWhatsAppService implements IWhatsAppService {
     private sock: any;
@@ -336,6 +336,27 @@ export class BaileysWhatsAppService implements IWhatsAppService {
         const fin = datos.periodoFin.toLocaleDateString('es-CO');
         const destinatario = this.formatearDestinatario(datos.nombreCliente, datos.tratamiento);
         const mensaje = `Recibo de mensualidad No. *${datos.pagoId}*\n\n${destinatario}\nPlaca: *${datos.placa}*\nParqueadero: *${datos.nombreParqueadero}*\nValor pagado: *${valor}*\nMedio de pago: *${datos.metodoPago}*\nPeriodo: *${inicio}* al *${fin}*.`;
+        await this.enviarTextoConMapeoTelefono(datos.telefono, mensaje);
+        return true;
+    }
+
+    async enviarBienvenidaMensualidad(datos: DTOBienvenidaMensualidad): Promise<boolean> {
+        const saludo = this.obtenerSaludoFormal();
+        const fechaPago = datos.fechaPago.toLocaleDateString('es-CO');
+        const fechaVencimiento = datos.fechaVencimiento.toLocaleDateString('es-CO');
+        const monto = new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            maximumFractionDigits: 0
+        }).format(datos.monto);
+        const destinatario = this.formatearDestinatario(datos.nombreCliente, datos.tratamiento);
+        const mensaje = `${saludo}, ${destinatario}. ¡Bienvenido a *${datos.nombreParqueadero}*!\n\n` +
+            `Registramos tu mensualidad para la placa *${datos.placa}*.\n` +
+            `Fecha del pago: *${fechaPago}*\n` +
+            `Valor pagado: *${monto}*\n` +
+            `Día acordado de pago: *${datos.diaPagoMensual} de cada mes*\n` +
+            `Vigencia hasta: *${fechaVencimiento}*\n\n` +
+            `Gracias por preferir *${datos.nombreParqueadero}*.`;
         await this.enviarTextoConMapeoTelefono(datos.telefono, mensaje);
         return true;
     }
