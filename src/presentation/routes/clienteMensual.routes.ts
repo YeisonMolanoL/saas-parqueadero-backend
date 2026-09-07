@@ -12,6 +12,7 @@ router.get('/notificaciones', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualC
 router.post('/notificaciones/:notificacionId/reintentar', requireRoles('ADMIN_PARQUEADERO'), ClienteMensualController.reintentarNotificacion);
 router.get('/', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.listar);
 router.post('/', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.crear);
+router.get('/:id', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.detalle);
 router.post('/:id/pagos', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.registrarPago);
 router.get('/:id/pagos', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.listarPagos);
 router.get('/pagos/:pagoId/recibo', requireRoles('ADMIN_PARQUEADERO', 'OPERARIO'), ClienteMensualController.obtenerRecibo);

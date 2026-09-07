@@ -12,7 +12,7 @@ export interface ClienteRow extends RowDataPacket {
     dia_pago_mensual: number;
     fecha_inicio: Date;
     fecha_vencimiento: Date;
-    estado: 'AL_DIA' | 'POR_VENCER' | 'VENCIDO';
+    estado: 'AL_DIA' | 'POR_VENCER' | 'VENCIDO' | 'CANCELADA';
     creado_en: Date;
 }
 

@@ -13,6 +13,13 @@ export class GestionarClienteMensualUseCase {
         return this.clienteMensualRepository.actualizarCliente(id, parqueaderoId, usuarioId, datos);
     }
 
+    async detalle(id: number, parqueaderoId: number) {
+        if (!Number.isInteger(id) || id <= 0) {
+            throw new TypeError('El identificador de la mensualidad no es válido.');
+        }
+        return this.clienteMensualRepository.obtenerDetalle(id, parqueaderoId);
+    }
+
     async cambiarPlaca(id: number, parqueaderoId: number, usuarioId: number, placaNueva: string) {
         const cliente = await this.clienteMensualRepository.buscarPorId(id, parqueaderoId);
         if (!cliente) throw new Error('La mensualidad no existe.');

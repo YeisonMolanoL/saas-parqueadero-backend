@@ -84,6 +84,19 @@ export class ClienteMensualController {
         }
     }
 
+    static async detalle(req: Request, res: Response): Promise<void> {
+        try {
+            const detalle = await gestionarClienteUseCase.detalle(Number(req.params.id), req.user!.parqueaderoId);
+            if (!detalle) {
+                res.status(404).json({ error: 'La mensualidad no existe.' });
+                return;
+            }
+            res.status(200).json({ data: detalle });
+        } catch (error: unknown) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible consultar la mensualidad.' });
+        }
+    }
+
     // POST /api/v1/clientes-mensuales
     static async crear(req: Request, res: Response): Promise<void> {
         try {
