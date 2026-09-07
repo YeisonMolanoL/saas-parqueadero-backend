@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import type { IParqueaderoRepository } from '../../domain/repositories/IParqueaderoRepository.js';
-import type { IParqueaderoAdministrativo, IParqueaderoRegistrado, IRegistrarParqueaderoInput, IRenovarSuscripcionParqueaderoDTO } from '../../domain/types/parqueadero.types.js';
+import type { IParqueaderoAdministrativo, IParqueaderoDetalle, IParqueaderoRegistrado, IRegistrarParqueaderoInput, IRenovarSuscripcionParqueaderoDTO } from '../../domain/types/parqueadero.types.js';
 
 export class RegistrarParqueaderoUseCase {
     constructor(private readonly parqueaderoRepository: IParqueaderoRepository) { }
@@ -13,6 +13,13 @@ export class RegistrarParqueaderoUseCase {
 
     async listar(): Promise<IParqueaderoAdministrativo[]> {
         return this.parqueaderoRepository.listarAdministrativos();
+    }
+
+    async detalle(parqueaderoId: number): Promise<IParqueaderoDetalle | null> {
+        if (!Number.isInteger(parqueaderoId) || parqueaderoId <= 0) {
+            throw new TypeError('El identificador del parqueadero no es válido.');
+        }
+        return this.parqueaderoRepository.obtenerDetalle(parqueaderoId);
     }
 
     async cambiarEstado(parqueaderoId: number, usuarioId: number, estado: 'ACTIVO' | 'SUSPENDIDO', motivo: string): Promise<void> {

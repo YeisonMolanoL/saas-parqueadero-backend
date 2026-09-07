@@ -2,7 +2,7 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
 import { dbPool } from '../database/mysql.config.js';
 import type { IParqueaderoRepository } from '../../domain/repositories/IParqueaderoRepository.js';
-import type { IParqueaderoAdministrativo, IParqueaderoRegistrado, IRegistrarParqueaderoDTO, IRenovarSuscripcionParqueaderoDTO } from '../../domain/types/parqueadero.types.js';
+import type { IParqueaderoAdministrativo, IParqueaderoDetalle, IParqueaderoRegistrado, IRegistrarParqueaderoDTO, IRenovarSuscripcionParqueaderoDTO } from '../../domain/types/parqueadero.types.js';
 
 interface PlanRow extends RowDataPacket {
     id: number;
@@ -118,6 +118,78 @@ export class MySQLParqueaderoRepository implements IParqueaderoRepository {
             suscripcionVence: row.fecha_vencimiento ? new Date(row.fecha_vencimiento) : undefined,
             estadoPago: row.estado_pago ?? undefined
         }));
+    }
+
+    async obtenerDetalle(parqueaderoId: number): Promise<IParqueaderoDetalle | null> {
+        const [rows] = await dbPool.execute<RowDataPacket[]>(`
+            SELECT parqueadero.id, parqueadero.nombre_comercial, parqueadero.nit_documento,
+                   parqueadero.ciudad, parqueadero.direccion, parqueadero.telefono_contacto,
+                   parqueadero.fecha_fin_prueba, parqueadero.estado, parqueadero.creado_en,
+                   administrador.id AS administrador_id, administrador.nombre AS administrador_nombre,
+                   administrador.documento_id AS administrador_documento,
+                   administrador.telefono AS administrador_telefono, administrador.email AS administrador_email,
+                   administrador.estado AS administrador_estado,
+                   suscripcion.id AS suscripcion_id, suscripcion.plan_id, plan.nombre AS plan_nombre,
+                   suscripcion.fecha_inicio, suscripcion.fecha_vencimiento, suscripcion.monto_pagado,
+                   suscripcion.metodo_pago, suscripcion.transaccion_id, suscripcion.estado_pago
+            FROM parqueaderos parqueadero
+            LEFT JOIN usuarios administrador
+                ON administrador.id = (
+                    SELECT usuario.id
+                    FROM usuarios usuario
+                    INNER JOIN roles rol ON rol.id = usuario.rol_id
+                    WHERE usuario.parqueadero_id = parqueadero.id
+                      AND rol.nombre = 'ADMIN_PARQUEADERO'
+                    ORDER BY usuario.id ASC
+                    LIMIT 1
+                )
+            LEFT JOIN suscripciones_parqueadero suscripcion
+                ON suscripcion.id = (
+                    SELECT ultima.id
+                    FROM suscripciones_parqueadero ultima
+                    WHERE ultima.parqueadero_id = parqueadero.id
+                    ORDER BY ultima.fecha_vencimiento DESC, ultima.id DESC
+                    LIMIT 1
+                )
+            LEFT JOIN planes_saas plan ON plan.id = suscripcion.plan_id
+            WHERE parqueadero.id = ?
+            LIMIT 1
+        `, [parqueaderoId]);
+        const row = rows[0];
+        if (!row) return null;
+        return {
+            id: row.id,
+            nombreComercial: row.nombre_comercial,
+            nitDocumento: row.nit_documento,
+            ciudad: row.ciudad,
+            estado: row.estado,
+            direccion: row.direccion,
+            telefonoContacto: row.telefono_contacto,
+            fechaFinPrueba: row.fecha_fin_prueba ? new Date(row.fecha_fin_prueba) : undefined,
+            creadoEn: row.creado_en ? new Date(row.creado_en) : undefined,
+            planNombre: row.plan_nombre ?? undefined,
+            suscripcionVence: row.fecha_vencimiento ? new Date(row.fecha_vencimiento) : undefined,
+            estadoPago: row.estado_pago ?? undefined,
+            administrador: row.administrador_id ? {
+                id: row.administrador_id,
+                nombre: row.administrador_nombre,
+                documentoId: row.administrador_documento,
+                telefono: row.administrador_telefono,
+                email: row.administrador_email ?? undefined,
+                estado: row.administrador_estado
+            } : undefined,
+            suscripcion: row.suscripcion_id ? {
+                id: row.suscripcion_id,
+                planId: row.plan_id,
+                planNombre: row.plan_nombre,
+                fechaInicio: new Date(row.fecha_inicio),
+                fechaVencimiento: new Date(row.fecha_vencimiento),
+                montoPagado: Number(row.monto_pagado),
+                metodoPago: row.metodo_pago,
+                transaccionId: row.transaccion_id,
+                estadoPago: row.estado_pago
+            } : undefined
+        };
     }
 
     async registrarConConfiguracion(datos: IRegistrarParqueaderoDTO): Promise<IParqueaderoRegistrado> {

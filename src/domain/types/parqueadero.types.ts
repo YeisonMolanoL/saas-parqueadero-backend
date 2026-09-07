@@ -33,6 +33,32 @@ export interface IParqueaderoAdministrativo {
     estadoPago?: 'APROBADO' | 'PENDIENTE' | 'RECHAZADO' | undefined;
 }
 
+export interface IParqueaderoDetalle extends IParqueaderoAdministrativo {
+    direccion: string;
+    telefonoContacto: string;
+    fechaFinPrueba?: Date | undefined;
+    creadoEn?: Date | undefined;
+    administrador?: {
+        id: number;
+        nombre: string;
+        documentoId: string;
+        telefono: string;
+        email?: string | undefined;
+        estado: 'ACTIVO' | 'INACTIVO' | 'BLOQUEADO';
+    } | undefined;
+    suscripcion?: {
+        id: number;
+        planId: number;
+        planNombre: string;
+        fechaInicio: Date;
+        fechaVencimiento: Date;
+        montoPagado: number;
+        metodoPago: IRenovarSuscripcionParqueaderoDTO['metodoPago'];
+        transaccionId: string;
+        estadoPago: 'APROBADO' | 'PENDIENTE' | 'RECHAZADO';
+    } | undefined;
+}
+
 export interface IRenovarSuscripcionParqueaderoDTO {
     planId: number;
     metodoPago: 'WOMPI_PSE' | 'WOMPI_TARJETA' | 'WOMPI_BRE_B' | 'NEQUI' | 'TRANSFERENCIA';
