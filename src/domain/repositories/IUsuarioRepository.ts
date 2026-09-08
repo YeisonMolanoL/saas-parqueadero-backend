@@ -23,6 +23,12 @@ export interface IRegistrarOperarioDTO {
     pinHash: string;
 }
 
+export interface IActualizarAdministradorPropioDTO {
+    nombre: string;
+    telefono: string;
+    email?: string | undefined;
+}
+
 export interface IUsuarioRepository {
     buscarPorDocumento(parqueaderoId: number | null, documentoId: string): Promise<IUsuario | null>;
     buscarSuperAdminPorDocumento(documentoId: string): Promise<IUsuario | null>;
@@ -34,4 +40,5 @@ export interface IUsuarioRepository {
     listarPorParqueadero(parqueaderoId: number): Promise<IUsuario[]>;
     registrarOperario(parqueaderoId: number, administradorId: number, datos: IRegistrarOperarioDTO): Promise<IUsuario>;
     cambiarEstadoOperario(parqueaderoId: number, operarioId: number, administradorId: number, estado: 'ACTIVO' | 'INACTIVO', motivo: string): Promise<void>;
+    actualizarDatosPropios(usuarioId: number, parqueaderoId: number, datos: IActualizarAdministradorPropioDTO): Promise<void>;
 }

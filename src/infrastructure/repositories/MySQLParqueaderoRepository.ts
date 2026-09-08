@@ -3,6 +3,7 @@ import type { PoolConnection } from 'mysql2/promise';
 import { dbPool } from '../database/mysql.config.js';
 import type { IParqueaderoRepository } from '../../domain/repositories/IParqueaderoRepository.js';
 import type { IParqueaderoAdministrativo, IParqueaderoDetalle, IParqueaderoRegistrado, IRegistrarParqueaderoDTO, IRenovarSuscripcionParqueaderoDTO } from '../../domain/types/parqueadero.types.js';
+import type { IActualizarParqueaderoPropioDTO, ISuscripcionMembresia } from '../../domain/types/miPerfil.types.js';
 
 interface PlanRow extends RowDataPacket {
     id: number;
@@ -190,6 +191,38 @@ export class MySQLParqueaderoRepository implements IParqueaderoRepository {
                 estadoPago: row.estado_pago
             } : undefined
         };
+    }
+
+    async actualizarDatosPropios(parqueaderoId: number, datos: IActualizarParqueaderoPropioDTO): Promise<void> {
+        const [result] = await dbPool.execute<ResultSetHeader>(`
+            UPDATE parqueaderos
+            SET nombre_comercial = ?, ciudad = ?, direccion = ?, telefono_contacto = ?
+            WHERE id = ?
+        `, [datos.nombreComercial, datos.ciudad, datos.direccion, datos.telefonoContacto, parqueaderoId]);
+        if (result.affectedRows !== 1) throw new Error('El parqueadero no existe.');
+    }
+
+    async listarSuscripciones(parqueaderoId: number): Promise<ISuscripcionMembresia[]> {
+        const [rows] = await dbPool.execute<RowDataPacket[]>(`
+            SELECT suscripcion.id, suscripcion.plan_id, plan.nombre AS plan_nombre,
+                   suscripcion.fecha_inicio, suscripcion.fecha_vencimiento, suscripcion.monto_pagado,
+                   suscripcion.metodo_pago, suscripcion.transaccion_id, suscripcion.estado_pago
+            FROM suscripciones_parqueadero suscripcion
+            INNER JOIN planes_saas plan ON plan.id = suscripcion.plan_id
+            WHERE suscripcion.parqueadero_id = ?
+            ORDER BY suscripcion.fecha_vencimiento DESC, suscripcion.id DESC
+        `, [parqueaderoId]);
+        return rows.map((row) => ({
+            id: row.id,
+            planId: row.plan_id,
+            planNombre: row.plan_nombre,
+            fechaInicio: new Date(row.fecha_inicio),
+            fechaVencimiento: new Date(row.fecha_vencimiento),
+            montoPagado: Number(row.monto_pagado),
+            metodoPago: row.metodo_pago,
+            transaccionId: row.transaccion_id,
+            estadoPago: row.estado_pago
+        }));
     }
 
     async registrarConConfiguracion(datos: IRegistrarParqueaderoDTO): Promise<IParqueaderoRegistrado> {

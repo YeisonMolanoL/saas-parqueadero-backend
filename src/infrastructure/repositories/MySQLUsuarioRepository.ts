@@ -1,4 +1,4 @@
-import type { IUsuarioRepository, IUsuario, IRegistrarOperarioDTO } from '../../domain/repositories/IUsuarioRepository.js';
+import type { IUsuarioRepository, IUsuario, IRegistrarOperarioDTO, IActualizarAdministradorPropioDTO } from '../../domain/repositories/IUsuarioRepository.js';
 import type { PoolConnection } from 'mysql2/promise';
 import { dbPool } from '../database/mysql.config.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
@@ -151,6 +151,16 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
     async resetearIntentos(usuarioId: number): Promise<void> {
         const query = `UPDATE usuarios SET intentos_fallidos_pin = 0, bloqueado_hasta = NULL WHERE id = ?`;
         await dbPool.execute<ResultSetHeader>(query, [usuarioId]);
+    }
+
+    async actualizarDatosPropios(usuarioId: number, parqueaderoId: number, datos: IActualizarAdministradorPropioDTO): Promise<void> {
+        const [result] = await dbPool.execute<ResultSetHeader>(`
+            UPDATE usuarios usuario
+            INNER JOIN roles rol ON rol.id = usuario.rol_id
+            SET usuario.nombre = ?, usuario.telefono = ?, usuario.email = ?
+            WHERE usuario.id = ? AND usuario.parqueadero_id = ? AND rol.nombre = 'ADMIN_PARQUEADERO'
+        `, [datos.nombre.trim(), datos.telefono.trim(), datos.email?.trim() || null, usuarioId, parqueaderoId]);
+        if (result.affectedRows !== 1) throw new Error('No fue posible actualizar los datos del administrador.');
     }
 
     private async obtenerRolOperario(connection: PoolConnection): Promise<number> {
