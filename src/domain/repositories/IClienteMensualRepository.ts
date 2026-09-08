@@ -3,13 +3,16 @@ import type {
     IPagoMensualidad,
     ICrearClienteMensualDTO,
     IRegistrarPagoMensualidadDTO
+    , IClienteMensualDetalle
 } from '../types/clienteMensual.types.js';
 import type { IPeriodoMensualidad } from '../services/CalcularPeriodoMensualidad.js';
 
 export interface IClienteMensualRepository {
     crearCliente(datos: ICrearClienteMensualDTO): Promise<IClienteMensual>;
     buscarPorId(id: number, parqueaderoId: number): Promise<IClienteMensual | null>;
+    obtenerDetalle(id: number, parqueaderoId: number): Promise<IClienteMensualDetalle | null>;
     buscarPorPlaca(placa: string, parqueaderoId: number): Promise<IClienteMensual | null>;
+    obtenerNombreParqueadero(parqueaderoId: number): Promise<string>;
     tieneAccesoMensual(placa: string, parqueaderoId: number): Promise<boolean>;
     actualizarCliente(id: number, parqueaderoId: number, usuarioId: number, datos: import('../types/clienteMensual.types.js').IActualizarClienteMensualDTO): Promise<IClienteMensual>;
     cambiarPlaca(id: number, parqueaderoId: number, usuarioId: number, placaNueva: string): Promise<IClienteMensual>;
@@ -19,7 +22,7 @@ export interface IClienteMensualRepository {
     obtenerResumenAdministrativo(parqueaderoId: number): Promise<import('../types/clienteMensual.types.js').IResumenMensualidades>;
     obtenerReciboPago(pagoId: number, parqueaderoId: number): Promise<import('../types/clienteMensual.types.js').IReciboMensualidad | null>;
     registrarPago(datos: IRegistrarPagoMensualidadDTO): Promise<IPagoMensualidad>;
-    registrarClienteConPago(datos: ICrearClienteMensualDTO, turnoCajaId: number, monto: number, periodo: IPeriodoMensualidad): Promise<IClienteMensual>;
+    registrarClienteConPago(datos: ICrearClienteMensualDTO, usuarioId: number, turnoCajaId: number, monto: number, periodo: IPeriodoMensualidad): Promise<IClienteMensual>;
     renovarConPago(datos: IRegistrarPagoMensualidadDTO, periodo: IPeriodoMensualidad): Promise<IPagoMensualidad>;
     listarPagosPorCliente(clienteMensualId: number, parqueaderoId: number): Promise<IPagoMensualidad[]>;
     calcularRecaudoMensualidadesTurno(turnoId: number): Promise<{ totalEfectivo: number; totalOtros: number }>;

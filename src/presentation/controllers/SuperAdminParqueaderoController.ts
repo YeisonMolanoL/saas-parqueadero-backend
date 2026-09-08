@@ -14,6 +14,19 @@ export class SuperAdminParqueaderoController {
         }
     }
 
+    static async detalle(req: Request, res: Response): Promise<void> {
+        try {
+            const parqueadero = await registrarParqueaderoUseCase.detalle(Number(req.params.id));
+            if (!parqueadero) {
+                res.status(404).json({ error: 'El parqueadero no existe.' });
+                return;
+            }
+            res.status(200).json({ data: parqueadero });
+        } catch (error: unknown) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible consultar el parqueadero.' });
+        }
+    }
+
     static async registrar(req: Request, res: Response): Promise<void> {
         try {
             const resultado = await registrarParqueaderoUseCase.ejecutar(req.body as IRegistrarParqueaderoInput);

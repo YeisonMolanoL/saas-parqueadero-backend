@@ -6,6 +6,7 @@ import { authenticateToken, requireSuperAdmin } from '../middlewares/auth.middle
 const router = Router();
 router.use(authenticateToken, requireSuperAdmin);
 router.get('/parqueaderos', SuperAdminParqueaderoController.listar);
+router.get('/parqueaderos/:id', SuperAdminParqueaderoController.detalle);
 router.post('/parqueaderos', SuperAdminParqueaderoController.registrar);
 router.post('/parqueaderos/:id/activar', SuperAdminParqueaderoController.activar);
 router.post('/parqueaderos/:id/suspender', SuperAdminParqueaderoController.suspender);

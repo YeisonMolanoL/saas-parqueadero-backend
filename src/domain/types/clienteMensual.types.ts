@@ -10,7 +10,18 @@ export interface IClienteMensual {
     fechaVencimiento: Date;
     diaPagoMensual: number;
     activo: boolean;
+    estado: 'AL_DIA' | 'POR_VENCER' | 'VENCIDO' | 'CANCELADA';
     creadoEn?: Date | undefined;
+}
+
+export interface IClienteMensualDetalle extends IClienteMensual {
+    nombreParqueadero: string;
+    usuarioRegistro?: {
+        id: number;
+        nombre: string;
+        documentoId: string;
+    } | undefined;
+    pagos: IPagoMensualidad[];
 }
 
 export type TratamientoCliente = 'SR' | 'SRA' | 'NEUTRO';
