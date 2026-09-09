@@ -34,4 +34,7 @@ export interface IUsuarioRepository {
     listarPorParqueadero(parqueaderoId: number): Promise<IUsuario[]>;
     registrarOperario(parqueaderoId: number, administradorId: number, datos: IRegistrarOperarioDTO): Promise<IUsuario>;
     cambiarEstadoOperario(parqueaderoId: number, operarioId: number, administradorId: number, estado: 'ACTIVO' | 'INACTIVO', motivo: string): Promise<void>;
+    guardarCodigoRecuperacion(usuarioId: number, codigoHash: string, expiraEn: Date): Promise<void>;
+    leerCodigoRecuperacion(usuarioId: number): Promise<{ codigoHash: string | null; expiracion: Date | null; consumido: number | null } | null>;
+    restablecerPin(usuarioId: number, pinHash: string): Promise<void>;
 }

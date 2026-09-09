@@ -9,6 +9,10 @@ const router = Router();
 router.post('/login-operario', AuthController.loginOperario);
 router.post('/login-super-admin', AuthController.loginSuperAdmin);
 
+// Recuperación de acceso (restablecer PIN olvidado)
+router.post('/recuperar-codigo', AuthController.solicitarCodigoRecuperacion);
+router.post('/recuperar-confirmar', AuthController.confirmarRestablecimientoPin);
+
 // Ruta protegida de prueba
 router.get('/perfil', authenticateToken, (req: Request, res: Response) => {
     res.status(200).json({

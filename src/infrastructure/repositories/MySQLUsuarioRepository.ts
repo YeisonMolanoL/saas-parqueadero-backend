@@ -153,6 +153,37 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         await dbPool.execute<ResultSetHeader>(query, [usuarioId]);
     }
 
+    async guardarCodigoRecuperacion(usuarioId: number, codigoHash: string, expiraEn: Date): Promise<void> {
+        await dbPool.execute<ResultSetHeader>(`
+            UPDATE usuarios SET codigo_recuperacion_hash = ?, codigo_recuperacion_expiracion = ?, codigo_recuperacion_consumido = NULL
+            WHERE id = ?
+        `, [codigoHash, expiraEn, usuarioId]);
+    }
+
+    async leerCodigoRecuperacion(usuarioId: number): Promise<{ codigoHash: string | null; expiracion: Date | null; consumido: number | null } | null> {
+        const query = `
+            SELECT codigo_recuperacion_hash AS codigoHash, codigo_recuperacion_expiracion AS expiracion,
+                   codigo_recuperacion_consumido AS consumido
+            FROM usuarios WHERE id = ? LIMIT 1
+        `;
+        const [rows] = await dbPool.execute<RowDataPacket[]>(query, [usuarioId]);
+        const fila = rows[0];
+        if (!fila) return null;
+        return {
+            codigoHash: (fila.codigoHash as string | null) ?? null,
+            expiracion: (fila.expiracion as Date | null) ?? null,
+            consumido: (fila.consumido as number | null) ?? null
+        };
+    }
+
+    async restablecerPin(usuarioId: number, pinHash: string): Promise<void> {
+        await dbPool.execute<ResultSetHeader>(`
+            UPDATE usuarios SET pin_hash = ?, intentos_fallidos_pin = 0, bloqueado_hasta = NULL, estado = 'ACTIVO',
+                codigo_recuperacion_hash = NULL, codigo_recuperacion_expiracion = NULL, codigo_recuperacion_consumido = NULL
+            WHERE id = ?
+        `, [pinHash, usuarioId]);
+    }
+
     private async obtenerRolOperario(connection: PoolConnection): Promise<number> {
       const [rows] = await connection.execute<RowDataPacket[]>(`SELECT id FROM roles WHERE nombre = 'OPERARIO' LIMIT 1`);
       const row = rows[0];
