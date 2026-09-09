@@ -1,8 +1,10 @@
 import type { IParqueaderoRepository } from '../../domain/repositories/IParqueaderoRepository.js';
 import type { IUsuarioRepository } from '../../domain/repositories/IUsuarioRepository.js';
 import type { IPlanSaasRepository } from '../../domain/repositories/IPlanSaasRepository.js';
+import type { ITurnoRepository } from '../../domain/repositories/ITurnoRepository.js';
 import type { IParqueaderoDetalle, IRenovarSuscripcionParqueaderoDTO } from '../../domain/types/parqueadero.types.js';
 import type { IPlanSaas } from '../../domain/types/planSaas.types.js';
+import type { ITurnoHistorial } from '../../domain/types/turno.types.js';
 import type { IActualizarAdministradorPropioDTO, IActualizarParqueaderoPropioDTO, IAdministradorPropio, ISuscripcionMembresia } from '../../domain/types/miPerfil.types.js';
 
 const METODOS_PAGO = ['WOMPI_PSE', 'WOMPI_TARJETA', 'WOMPI_BRE_B', 'NEQUI', 'TRANSFERENCIA'] as const;
@@ -11,7 +13,8 @@ export class GestionarMiPerfilUseCase {
     constructor(
         private readonly parqueaderoRepository: IParqueaderoRepository,
         private readonly usuarioRepository: IUsuarioRepository,
-        private readonly planRepository: IPlanSaasRepository
+        private readonly planRepository: IPlanSaasRepository,
+        private readonly turnoRepository: ITurnoRepository
     ) { }
 
     async obtenerParqueaderoPropio(parqueaderoId: number): Promise<IParqueaderoDetalle> {
@@ -28,6 +31,11 @@ export class GestionarMiPerfilUseCase {
     async listarPagos(parqueaderoId: number): Promise<ISuscripcionMembresia[]> {
         this.validarParqueadero(parqueaderoId);
         return this.parqueaderoRepository.listarSuscripciones(parqueaderoId);
+    }
+
+    async listarTurnos(parqueaderoId: number): Promise<ITurnoHistorial[]> {
+        this.validarParqueadero(parqueaderoId);
+        return this.turnoRepository.listarHistorial(parqueaderoId);
     }
 
     async actualizarParqueaderoPropio(parqueaderoId: number, datos: IActualizarParqueaderoPropioDTO): Promise<void> {

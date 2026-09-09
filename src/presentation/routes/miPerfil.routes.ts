@@ -10,6 +10,7 @@ router.get('/administrador', MiPerfilController.administradorPropio);
 router.patch('/administrador', MiPerfilController.actualizarAdministrador);
 router.get('/planes', MiPerfilController.planes);
 router.get('/pagos', MiPerfilController.pagos);
+router.get('/turnos', MiPerfilController.turnos);
 router.post('/suscripciones', MiPerfilController.mejorarPlan);
 
 export default router;

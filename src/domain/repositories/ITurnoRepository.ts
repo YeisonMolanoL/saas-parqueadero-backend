@@ -1,4 +1,4 @@
-import type { ITurnoCaja, IAbrirTurnoDTO, ICerrarTurnoDTO, IResumenVentasTurno } from '../types/turno.types.js';
+import type { ITurnoCaja, IAbrirTurnoDTO, ICerrarTurnoDTO, IResumenVentasTurno, ITurnoHistorial } from '../types/turno.types.js';
 
 export interface ITurnoRepository {
     /**
@@ -31,4 +31,14 @@ export interface ITurnoRepository {
         diferencia: number;
         observaciones?: string | undefined;
     }): Promise<void>;
+
+    /**
+      * Actualiza la base inicial en efectivo del turno abierto de un parqueadero específico.
+      */
+    actualizarBaseInicial(parqueaderoId: number, monto: number): Promise<void>;
+
+    /**
+      * Lista los turnos de un parqueadero con fechas y valores consolidados, del más reciente al más antiguo.
+      */
+    listarHistorial(parqueaderoId: number): Promise<ITurnoHistorial[]>;
 }

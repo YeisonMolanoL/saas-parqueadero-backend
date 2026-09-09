@@ -3,13 +3,15 @@ import { GestionarMiPerfilUseCase } from '../../application/use-cases/GestionarM
 import { MySQLParqueaderoRepository } from '../../infrastructure/repositories/MySQLParqueaderoRepository.js';
 import { MySQLUsuarioRepository } from '../../infrastructure/repositories/MySQLUsuarioRepository.js';
 import { MySQLPlanSaasRepository } from '../../infrastructure/repositories/MySQLPlanSaasRepository.js';
+import { MySQLTurnoRepository } from '../../infrastructure/repositories/MySQLTurnoRepository.js';
 import type { IActualizarAdministradorPropioDTO, IActualizarParqueaderoPropioDTO } from '../../domain/types/miPerfil.types.js';
 import type { IRenovarSuscripcionParqueaderoDTO } from '../../domain/types/parqueadero.types.js';
 
 const useCase = new GestionarMiPerfilUseCase(
     new MySQLParqueaderoRepository(),
     new MySQLUsuarioRepository(),
-    new MySQLPlanSaasRepository()
+    new MySQLPlanSaasRepository(),
+    new MySQLTurnoRepository()
 );
 
 export class MiPerfilController {
@@ -69,6 +71,15 @@ export class MiPerfilController {
             res.status(200).json({ data: await useCase.listarPagos(parqueaderoId) });
         } catch (error: unknown) {
             res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible consultar el historial de pagos.' });
+        }
+    }
+
+    static async turnos(req: Request, res: Response): Promise<void> {
+        try {
+            const parqueaderoId = MiPerfilController.parqueaderoId(req);
+            res.status(200).json({ data: await useCase.listarTurnos(parqueaderoId) });
+        } catch (error: unknown) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible consultar el historial de turnos.' });
         }
     }
 

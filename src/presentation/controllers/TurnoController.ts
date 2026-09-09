@@ -3,6 +3,7 @@ import { MySQLTurnoRepository } from '../../infrastructure/repositories/MySQLTur
 import { AbrirTurnoUseCase } from '../../application/use-cases/AbrirTurnoUseCase.js';
 import { CerrarTurnoUseCase } from '../../application/use-cases/CerrarTurnoUseCase.js';
 import { ConsultarEstadoTurnoUseCase } from '../../application/use-cases/ConsultarEstadoTurnoUseCase.js';
+import { ActualizarBaseTurnoUseCase } from '../../application/use-cases/ActualizarBaseTurnoUseCase.js';
 import { MySQLClienteMensualRepository } from '../../infrastructure/repositories/MySQLClienteMensualRepository.js';
 
 const turnoRepository = new MySQLTurnoRepository();
@@ -10,6 +11,7 @@ const abrirTurnoUseCase = new AbrirTurnoUseCase(turnoRepository);
 const clienteMensualRepository = new MySQLClienteMensualRepository();
 const cerrarTurnoUseCase = new CerrarTurnoUseCase(turnoRepository, clienteMensualRepository);
 const consultarEstadoTurnoUseCase = new ConsultarEstadoTurnoUseCase(turnoRepository, clienteMensualRepository);
+const actualizarBaseTurnoUseCase = new ActualizarBaseTurnoUseCase(turnoRepository);
 
 export class TurnoController {
 
@@ -73,6 +75,23 @@ export class TurnoController {
             const { parqueaderoId, usuarioId } = req.user!;
             const resultado = await consultarEstadoTurnoUseCase.ejecutar(usuarioId, parqueaderoId);
             res.status(200).json({ data: resultado });
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
+        }
+    }
+
+    // PATCH /api/v1/turnos/actual/base
+    static async actualizarBase(req: Request, res: Response): Promise<void> {
+        try {
+            const { parqueaderoId } = req.user!;
+            const monto = await actualizarBaseTurnoUseCase.ejecutar(
+                parqueaderoId,
+                Number(req.body.montoInicialEfectivo)
+            );
+            res.status(200).json({
+                mensaje: 'Base inicial actualizada correctamente',
+                data: { montoInicialEfectivo: monto }
+            });
         } catch (error: any) {
             res.status(400).json({ error: error.message });
         }

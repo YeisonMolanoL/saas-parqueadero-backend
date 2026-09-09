@@ -32,3 +32,31 @@ export interface IResumenVentasTurno {
     totalOtrosMetodos: number;
     totalTicketsCobrados: number;
 }
+
+export interface ITurnoHistorial {
+    id: number;
+    fechaApertura: Date;
+    fechaCierre?: Date | undefined;
+    abiertoPor?: string | undefined;
+    montoInicialBase: number;
+    totalEgresos: number;
+    ventasEfectivo: number;
+    efectivoEsperado: number;
+    montoDeclarado?: number | undefined;
+    diferencia?: number | undefined;
+    estado: 'ABIERTO' | 'CERRADO';
+}
+
+export interface ITurnoHistorial {
+    id: number;
+    fechaApertura: Date;
+    fechaCierre?: Date | undefined;
+    abiertoPor?: string | undefined;
+    montoInicialBase: number;
+    totalEgresos: number;
+    ventasEfectivo: number;
+    efectivoEsperado: number;
+    montoDeclarado?: number | undefined;
+    diferencia?: number | undefined;
+    estado: 'ABIERTO' | 'CERRADO';
+}
