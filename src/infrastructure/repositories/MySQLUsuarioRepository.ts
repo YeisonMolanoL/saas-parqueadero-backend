@@ -153,14 +153,44 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         await dbPool.execute<ResultSetHeader>(query, [usuarioId]);
     }
 
-    async actualizarDatosPropios(usuarioId: number, parqueaderoId: number, datos: IActualizarAdministradorPropioDTO): Promise<void> {
+    async registrarCodigoRecuperacion(usuarioId: number, codigoHash: string, expiraEn: Date, ip?: string | null): Promise<number> {
         const [result] = await dbPool.execute<ResultSetHeader>(`
-            UPDATE usuarios usuario
-            INNER JOIN roles rol ON rol.id = usuario.rol_id
-            SET usuario.nombre = ?, usuario.telefono = ?, usuario.email = ?
-            WHERE usuario.id = ? AND usuario.parqueadero_id = ? AND rol.nombre = 'ADMIN_PARQUEADERO'
-        `, [datos.nombre.trim(), datos.telefono.trim(), datos.email?.trim() || null, usuarioId, parqueaderoId]);
-        if (result.affectedRows !== 1) throw new Error('No fue posible actualizar los datos del administrador.');
+            INSERT INTO codigos_recuperacion (usuario_id, codigo_hash, expiracion, ip)
+            VALUES (?, ?, ?, ?)
+        `, [usuarioId, codigoHash, expiraEn, ip ?? null]);
+        return result.insertId;
+    }
+
+    async leerCodigoRecuperacionActivo(usuarioId: number): Promise<{ id: number; codigoHash: string; expiracion: Date; consumido: number } | null> {
+        const query = `
+            SELECT id, codigo_hash AS codigoHash, expiracion, consumido
+            FROM codigos_recuperacion
+            WHERE usuario_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+        `;
+        const [rows] = await dbPool.execute<RowDataPacket[]>(query, [usuarioId]);
+        const fila = rows[0];
+        if (!fila) return null;
+        return {
+            id: fila.id,
+            codigoHash: fila.codigoHash,
+            expiracion: new Date(fila.expiracion),
+            consumido: fila.consumido
+        };
+    }
+
+    async marcarCodigoConsumido(codigoId: number): Promise<void> {
+        await dbPool.execute<ResultSetHeader>(`
+            UPDATE codigos_recuperacion SET consumido = 1, usado_en = NOW() WHERE id = ?
+        `, [codigoId]);
+    }
+
+    async restablecerPin(usuarioId: number, pinHash: string): Promise<void> {
+        await dbPool.execute<ResultSetHeader>(`
+            UPDATE usuarios SET pin_hash = ?, intentos_fallidos_pin = 0, bloqueado_hasta = NULL, estado = 'ACTIVO'
+            WHERE id = ?
+        `, [pinHash, usuarioId]);
     }
 
     private async obtenerRolOperario(connection: PoolConnection): Promise<number> {
@@ -175,5 +205,15 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         INSERT INTO auditoria_eventos (parqueadero_id, usuario_id, tipo_accion, motivo)
         VALUES (?, ?, ?, ?)
       `, [parqueaderoId, usuarioId, tipoAccion, motivo]);
+    }
+
+    async actualizarDatosPropios(usuarioId: number, parqueaderoId: number, datos: IActualizarAdministradorPropioDTO): Promise<void> {
+        const [result] = await dbPool.execute<ResultSetHeader>(`
+            UPDATE usuarios usuario
+            INNER JOIN roles rol ON rol.id = usuario.rol_id
+            SET usuario.nombre = ?, usuario.telefono = ?, usuario.email = ?
+            WHERE usuario.id = ? AND usuario.parqueadero_id = ? AND rol.nombre = 'ADMIN_PARQUEADERO'
+        `, [datos.nombre.trim(), datos.telefono.trim(), datos.email?.trim() || null, usuarioId, parqueaderoId]);
+        if (result.affectedRows !== 1) throw new Error('No fue posible actualizar los datos del administrador.');
     }
 }

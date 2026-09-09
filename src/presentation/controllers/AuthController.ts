@@ -1,9 +1,12 @@
 import type { Request, Response } from 'express';
 import { MySQLUsuarioRepository } from '../../infrastructure/repositories/MySQLUsuarioRepository.js';
 import { LoginOperarioUseCase } from '../../application/use-cases/LoginOperarioUseCase.js';
+import { RecuperarAccesoUseCase } from '../../application/use-cases/RecuperarAccesoUseCase.js';
+import { whatsappService } from '../../infrastructure/services/whatsappInstance.js';
 
 const usuarioRepository = new MySQLUsuarioRepository();
 const loginOperarioUseCase = new LoginOperarioUseCase(usuarioRepository);
+const recuperarAccesoUseCase = new RecuperarAccesoUseCase(usuarioRepository, whatsappService);
 
 export class AuthController {
 
@@ -53,6 +56,45 @@ export class AuthController {
             res.status(200).json(resultado);
         } catch (error: unknown) {
             res.status(401).json({ error: error instanceof Error ? error.message : 'Credenciales inválidas.' });
+        }
+    }
+
+    static async solicitarCodigoRecuperacion(req: Request, res: Response): Promise<void> {
+        try {
+            const { documentoId, telefono } = req.body;
+            if (!documentoId || !telefono) {
+                res.status(400).json({ error: 'Documento y teléfono son requeridos.' });
+                return;
+            }
+
+            await recuperarAccesoUseCase.solicitarCodigo({ documentoId: String(documentoId), telefono: String(telefono), ip: req.ip ?? null });
+            res.status(200).json({
+                mensaje: 'Si el documento y teléfono coinciden con una cuenta activa, recibirás un código por WhatsApp.'
+            });
+        } catch (error: unknown) {
+            const mensaje = error instanceof Error ? error.message : 'No fue posible enviar el código de recuperación.';
+            res.status(error instanceof TypeError ? 400 : 500).json({ error: mensaje });
+        }
+    }
+
+    static async confirmarRestablecimientoPin(req: Request, res: Response): Promise<void> {
+        try {
+            const { documentoId, telefono, codigo, nuevoPin } = req.body;
+            if (!documentoId || !telefono || !codigo || !nuevoPin) {
+                res.status(400).json({ error: 'Todos los campos son requeridos.' });
+                return;
+            }
+
+            await recuperarAccesoUseCase.confirmarRestablecimiento({
+                documentoId: String(documentoId),
+                telefono: String(telefono),
+                codigo: String(codigo),
+                nuevoPin: String(nuevoPin)
+            });
+            res.status(200).json({ mensaje: 'Tu PIN ha sido restablecido. Ya puedes iniciar sesión.' });
+        } catch (error: unknown) {
+            const mensaje = error instanceof Error ? error.message : 'No fue posible restablecer el PIN.';
+            res.status(error instanceof TypeError ? 400 : 401).json({ error: mensaje });
         }
     }
 }

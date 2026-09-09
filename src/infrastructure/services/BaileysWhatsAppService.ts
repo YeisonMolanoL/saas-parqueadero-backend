@@ -6,7 +6,7 @@ import makeWASocket, {
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import QRCodeBase64 from 'qrcode';
-import type { IWhatsAppService, DTOBienvenidaBaileys, DTOEnvioQRBaileys, DTONotificacionMensualidad, DTORespuestaRenovacionMensualidad, DTOReciboMensualidad, DTOBienvenidaMensualidad } from '../../domain/services/IWhatsAppService.js';
+import type { IWhatsAppService, DTOBienvenidaBaileys, DTOEnvioQRBaileys, DTONotificacionMensualidad, DTORespuestaRenovacionMensualidad, DTOReciboMensualidad, DTOBienvenidaMensualidad, DTOCodigoRecuperacion } from '../../domain/services/IWhatsAppService.js';
 
 export class BaileysWhatsAppService implements IWhatsAppService {
     private sock: any;
@@ -382,6 +382,15 @@ export class BaileysWhatsAppService implements IWhatsAppService {
         return telefonoLimpio.startsWith('57') && telefonoLimpio.length === 12
             ? telefonoLimpio.substring(2)
             : telefonoLimpio;
+    }
+
+    async enviarCodigoRecuperacion(datos: DTOCodigoRecuperacion): Promise<boolean> {
+        const mensaje = `${this.obtenerSaludoFormal()}, *${datos.nombre}*.\n\n` +
+            `Usa el siguiente código para restablecer tu PIN de acceso al parqueadero:\n\n` +
+            `*🔐 ${datos.codigo}*\n\n` +
+            `El código es válido por *${datos.minutosValidez} minutos*. No lo compartas con nadie.`;
+        await this.enviarTextoConMapeoTelefono(datos.telefono, mensaje);
+        return true;
     }
 
     obtenerQr(): string | null {
