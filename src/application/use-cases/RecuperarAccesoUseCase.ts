@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { randomInt } from 'node:crypto';
-import type { IUsuario, IUsuarioRepository } from '../../domain/repositories/IUsuarioRepository.js';
+import type { IUsuarioRepository } from '../../domain/repositories/IUsuarioRepository.js';
 import type { IWhatsAppService } from '../../domain/services/IWhatsAppService.js';
 
 const VIGENCIA_MINUTOS = 10;
@@ -8,6 +8,7 @@ const VIGENCIA_MINUTOS = 10;
 interface SolicitarCodigoInput {
     documentoId: string;
     telefono: string;
+    ip?: string | null;
 }
 
 interface ConfirmarRestablecimientoInput {
@@ -48,7 +49,7 @@ export class RecuperarAccesoUseCase {
         const expiraEn = new Date(Date.now() + VIGENCIA_MINUTOS * 60_000);
         const codigoHash = await bcrypt.hash(codigo, 10);
 
-        await this.usuarioRepository.guardarCodigoRecuperacion(cuenta.id!, codigoHash, expiraEn);
+        await this.usuarioRepository.registrarCodigoRecuperacion(cuenta.id!, codigoHash, expiraEn, datos.ip ?? null);
 
         if (!this.whatsAppService.estaConectado()) {
             throw new Error('El servicio de WhatsApp no está conectado. Inténtalo de nuevo más tarde.');
@@ -84,9 +85,9 @@ export class RecuperarAccesoUseCase {
             throw new Error('No se encontró una cuenta que coincida con los datos ingresados.');
         }
 
-        // Se valida en la base de datos todo el estado del código (vigente y no consumido).
-        const codigoValido = await this.verificarCodigo(cuenta, codigo);
-        if (!codigoValido) {
+        // Se valida el último código solicitado (vigente y no consumido).
+        const codigoId = await this.obtenerCodigoValido(cuenta.id, codigo);
+        if (!codigoId) {
             throw new Error('El código es inválido o ha expirado. Solicita uno nuevo.');
         }
 
@@ -95,15 +96,17 @@ export class RecuperarAccesoUseCase {
         }
 
         const pinHash = await bcrypt.hash(nuevoPin, 10);
+        await this.usuarioRepository.marcarCodigoConsumido(codigoId);
         await this.usuarioRepository.restablecerPin(cuenta.id, pinHash);
     }
 
-    private async verificarCodigo(usuario: IUsuario, codigo: string): Promise<boolean> {
-        const fila = await this.usuarioRepository.leerCodigoRecuperacion(usuario.id!);
-        if (!fila?.codigoHash) return false;
-        if (fila.consumido === 1) return false;
-        if (!fila.expiracion || new Date(fila.expiracion) < new Date()) return false;
-        return bcrypt.compare(codigo, fila.codigoHash);
+    private async obtenerCodigoValido(usuarioId: number, codigo: string): Promise<number | null> {
+        const fila = await this.usuarioRepository.leerCodigoRecuperacionActivo(usuarioId);
+        if (!fila) return null;
+        if (fila.consumido === 1) return null;
+        if (new Date(fila.expiracion) < new Date()) return null;
+        const valido = await bcrypt.compare(codigo, fila.codigoHash);
+        return valido ? fila.id : null;
     }
 
     private normalizarTelefono(telefono: string): string {

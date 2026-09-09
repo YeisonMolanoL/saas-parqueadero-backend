@@ -153,33 +153,42 @@ export class MySQLUsuarioRepository implements IUsuarioRepository {
         await dbPool.execute<ResultSetHeader>(query, [usuarioId]);
     }
 
-    async guardarCodigoRecuperacion(usuarioId: number, codigoHash: string, expiraEn: Date): Promise<void> {
-        await dbPool.execute<ResultSetHeader>(`
-            UPDATE usuarios SET codigo_recuperacion_hash = ?, codigo_recuperacion_expiracion = ?, codigo_recuperacion_consumido = NULL
-            WHERE id = ?
-        `, [codigoHash, expiraEn, usuarioId]);
+    async registrarCodigoRecuperacion(usuarioId: number, codigoHash: string, expiraEn: Date, ip?: string | null): Promise<number> {
+        const [result] = await dbPool.execute<ResultSetHeader>(`
+            INSERT INTO codigos_recuperacion (usuario_id, codigo_hash, expiracion, ip)
+            VALUES (?, ?, ?, ?)
+        `, [usuarioId, codigoHash, expiraEn, ip ?? null]);
+        return result.insertId;
     }
 
-    async leerCodigoRecuperacion(usuarioId: number): Promise<{ codigoHash: string | null; expiracion: Date | null; consumido: number | null } | null> {
+    async leerCodigoRecuperacionActivo(usuarioId: number): Promise<{ id: number; codigoHash: string; expiracion: Date; consumido: number } | null> {
         const query = `
-            SELECT codigo_recuperacion_hash AS codigoHash, codigo_recuperacion_expiracion AS expiracion,
-                   codigo_recuperacion_consumido AS consumido
-            FROM usuarios WHERE id = ? LIMIT 1
+            SELECT id, codigo_hash AS codigoHash, expiracion, consumido
+            FROM codigos_recuperacion
+            WHERE usuario_id = ?
+            ORDER BY id DESC
+            LIMIT 1
         `;
         const [rows] = await dbPool.execute<RowDataPacket[]>(query, [usuarioId]);
         const fila = rows[0];
         if (!fila) return null;
         return {
-            codigoHash: (fila.codigoHash as string | null) ?? null,
-            expiracion: (fila.expiracion as Date | null) ?? null,
-            consumido: (fila.consumido as number | null) ?? null
+            id: fila.id,
+            codigoHash: fila.codigoHash,
+            expiracion: new Date(fila.expiracion),
+            consumido: fila.consumido
         };
+    }
+
+    async marcarCodigoConsumido(codigoId: number): Promise<void> {
+        await dbPool.execute<ResultSetHeader>(`
+            UPDATE codigos_recuperacion SET consumido = 1, usado_en = NOW() WHERE id = ?
+        `, [codigoId]);
     }
 
     async restablecerPin(usuarioId: number, pinHash: string): Promise<void> {
         await dbPool.execute<ResultSetHeader>(`
-            UPDATE usuarios SET pin_hash = ?, intentos_fallidos_pin = 0, bloqueado_hasta = NULL, estado = 'ACTIVO',
-                codigo_recuperacion_hash = NULL, codigo_recuperacion_expiracion = NULL, codigo_recuperacion_consumido = NULL
+            UPDATE usuarios SET pin_hash = ?, intentos_fallidos_pin = 0, bloqueado_hasta = NULL, estado = 'ACTIVO'
             WHERE id = ?
         `, [pinHash, usuarioId]);
     }

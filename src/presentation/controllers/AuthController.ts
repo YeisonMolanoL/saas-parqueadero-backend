@@ -67,7 +67,7 @@ export class AuthController {
                 return;
             }
 
-            await recuperarAccesoUseCase.solicitarCodigo({ documentoId: String(documentoId), telefono: String(telefono) });
+            await recuperarAccesoUseCase.solicitarCodigo({ documentoId: String(documentoId), telefono: String(telefono), ip: req.ip ?? null });
             res.status(200).json({
                 mensaje: 'Si el documento y teléfono coinciden con una cuenta activa, recibirás un código por WhatsApp.'
             });
